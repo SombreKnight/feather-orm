@@ -149,8 +149,19 @@ public class MyHandler implements TypeHandler {
 ```
 feather-orm
 ├── feather-orm-core                     # 注解、映射、类型转换、SQL 生成（仅依赖 spring-jdbc + javassist + jackson）
-└── feather-orm-spring-boot-starter      # 自动配置：数据源接管、Bean 装配、事务
+├── feather-orm-spring-boot-starter      # 自动配置：数据源接管、Bean 装配、事务
+└── feather-orm-samples                  # 可运行示例应用（H2 开箱即用）
 ```
+
+运行示例：
+
+```bash
+mvn -pl feather-orm-samples spring-boot:run
+# 或
+cd feather-orm-samples && mvn spring-boot:run
+```
+
+启动后访问 `http://localhost:8080/users` 体验 CRUD。
 
 ## 兼容性
 
@@ -161,17 +172,16 @@ feather-orm
 
 - 单库单表，不做分库分表（v1 定位）
 - 无实体缓存层（缓存策略交给上层）
-- `update`/批量更新采用"仅非 null 字段"语义；批量更新逐条执行（正确性优先）
-- 批量插入按"非空列集合"分组批量执行，组内共享 SQL
+- `update`/批量更新采用"仅非 null 字段"语义；批量更新通过单条 `COALESCE(:列, 原列)` SQL 一次 batchUpdate 完成，与单条更新语义完全一致
 
 ## Roadmap
 
 - [ ] Spring Boot 3.x 兼容验证与 CI 矩阵
 - [ ] `@Transactional` 与编程式事务的传播测试
-- [ ] 批量更新性能优化
+- [ ] 批量插入按"非空列集合"分组优化（已实现）
 - [ ] H2/MySQL 双数据库集成测试
 - [ ] Maven Central 发布
 
 ## License
 
-Apache License 2.0（待定）
+[Apache License 2.0](LICENSE)

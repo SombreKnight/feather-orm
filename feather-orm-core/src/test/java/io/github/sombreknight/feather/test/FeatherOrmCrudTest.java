@@ -239,6 +239,36 @@ public class FeatherOrmCrudTest {
         assertTrue(thrown, "未知字段应抛异常");
     }
 
+    @Test
+    public void t10_updateBatch() {
+        UserDO u1 = newUser("批量改1", 30, OrderStatus.PAID, TypeEnum.TEST1);
+        UserDO u2 = newUser("批量改2", 40, OrderStatus.CREATED, TypeEnum.TEST2);
+        userDAO.saveDomain(u1);
+        userDAO.saveDomain(u2);
+
+        // 仅设置部分字段：u1 改名字，u2 改 age；其余字段为 null（不得触碰原值）
+        UserDO up1 = new UserDO();
+        up1.setId(u1.getId());
+        up1.setUserName("批量改1-新");
+        UserDO up2 = new UserDO();
+        up2.setId(u2.getId());
+        up2.setAge(50);
+
+        assertTrue(userDAO.updateDomainList(Arrays.asList(up1, up2)));
+
+        UserDO f1 = userDAO.findById(u1.getId());
+        assertEquals("批量改1-新", f1.getUserName());
+        assertEquals(30, f1.getAge());
+        assertEquals(OrderStatus.PAID, f1.getStatus());
+        assertEquals(TypeEnum.TEST1, f1.getType());
+
+        UserDO f2 = userDAO.findById(u2.getId());
+        assertEquals("批量改2", f2.getUserName());
+        assertEquals(50, f2.getAge());
+        assertEquals(OrderStatus.CREATED, f2.getStatus());
+        assertNotNull(f2.getExtInfo());
+    }
+
     // ==================== 工具 ====================
 
     private static UserDO newUser(String name, int age, OrderStatus status, TypeEnum type) {

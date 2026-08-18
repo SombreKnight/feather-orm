@@ -200,17 +200,68 @@ public class JdbcDAO {
     }
 
     /**
-     * 批量更新：逐条执行（保证语义正确，批量性能后续版本优化）
+     * 批量更新：单条 SQL + COALESCE 实现"仅更新非 null 字段"语义
+     *
+     * <p>SET 列 = COALESCE(:列, 原列)，参数为 null 时保留原值，非 null 时更新，
+     * 与单条 {@link #update} 的语义完全一致，且一次 batchUpdate 完成。</p>
      */
     public <T extends BaseDO> int[] updateBatch(List<T> entities) {
         if (entities == null || entities.isEmpty()) {
             return new int[0];
         }
-        int[] results = new int[entities.size()];
-        for (int i = 0; i < entities.size(); i++) {
-            results[i] = update(entities.get(i));
+        @SuppressWarnings("unchecked")
+        Class<T> clazz = (Class<T>) entities.get(0).getClass();
+        for (T entity : entities) {
+            if (entity.getId() == null) {
+                throw new FeatherDaoException("批量更新时实体 id 不能为 null");
+            }
         }
-        return results;
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
+
+        StringBuilder sets = new StringBuilder();
+        List<FieldHandler> settableHandlers = new ArrayList<>();
+        for (FieldHandler handler : handlers) {
+            Field field = handler.getMeta().getField();
+            if (PK_FIELD_NAME.equals(field.getName())) {
+                continue;
+            }
+            if (sets.length() > 0) {
+                sets.append(", ");
+            }
+            sets.append(handler.getMeta().getQuotedColumn())
+                    .append(" = COALESCE(:").append(field.getName())
+                    .append(", ").append(handler.getMeta().getQuotedColumn()).append(")");
+            settableHandlers.add(handler);
+        }
+        if (settableHandlers.isEmpty()) {
+            log.warn("批量更新实体[{}]时没有可更新的字段", clazz.getName());
+            return new int[entities.size()];
+        }
+        String sql = " update " + mapper.getQuotedTableName() + " set " + sets
+                + " where " + mapper.getQuotedIdColumn() + " = :" + PK_FIELD_NAME;
+
+        Map<String, Object>[] batchValues = new Map[entities.size()];
+        for (int i = 0; i < entities.size(); i++) {
+            T entity = entities.get(i);
+            Map<String, Object> params = new HashMap<>();
+            for (FieldHandler handler : settableHandlers) {
+                Field field = handler.getMeta().getField();
+                Object value = ReflectUtils.getFieldValue(field, entity);
+                Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
+                params.put(field.getName(), jdbcValue); // null 时 COALESCE 保留原值
+            }
+            params.put(PK_FIELD_NAME, entity.getId());
+            batchValues[i] = params;
+        }
+        setDataSourceKey(true);
+        try {
+            return namedParameterJdbcTemplate.batchUpdate(sql, batchValues);
+        } catch (Exception e) {
+            throw new FeatherDaoException("批量更新实体[" + clazz.getName() + "]失败", e);
+        } finally {
+            clearDataSourceKey();
+        }
     }
 
     // ==================== 删除 ====================
