@@ -1,5 +1,6 @@
 package io.github.sombreknight.feather.test;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import io.github.sombreknight.feather.type.CodeEnum;
 
 /**
@@ -18,6 +19,7 @@ public enum AccountStatus implements CodeEnum<Integer> {
         this.value = value;
     }
 
+    @JsonValue
     @Override
     public Integer getValue() {
         return value;

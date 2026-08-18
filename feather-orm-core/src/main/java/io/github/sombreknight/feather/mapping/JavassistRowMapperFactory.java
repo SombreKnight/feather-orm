@@ -45,13 +45,43 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
                 // 忽略版本设置失败，使用 javassist 默认版本
             }
 
-            Object instance = ctClass.toClass(clazz.getClassLoader(), null)
-                    .getConstructor(FieldHandler[].class)
-                    .newInstance((Object) handlers);
+            Class<?> generatedClass = defineGeneratedClass(clazz, ctClass);
+            Object instance = generatedClass.getConstructor(FieldHandler[].class).newInstance((Object) handlers);
             return (RowMapper<T>) instance;
         } catch (Exception e) {
             throw new FeatherDaoException("为实体[" + clazz.getName() + "]生成 RowMapper 失败", e);
         }
+    }
+
+    /**
+     * 定义生成的 RowMapper 类
+     *
+     * <p>Java 9+：使用 javassist 的 {@code toClass(Class)}（内部走 MethodHandles.privateLookupIn +
+     * Lookup.defineClass），无需 --add-opens，兼容 JDK 17/21 模块系统；</p>
+     * <p>Java 8：回退 javassist 原生 ClassLoader.defineClass 路径。</p>
+     */
+    private static Class<?> defineGeneratedClass(Class<?> referenceClass, javassist.CtClass ctClass)
+            throws javassist.CannotCompileException {
+        if (JAVA_9_PLUS) {
+            return ctClass.toClass(referenceClass);
+        }
+        return ctClass.toClass(referenceClass.getClassLoader(), null);
+    }
+
+    /**
+     * JDK 9+ 检测（Class.getModule 为 JDK 9 新增 API，存在即 9+）
+     */
+    private static final boolean JAVA_9_PLUS;
+
+    static {
+        boolean detected = false;
+        try {
+            Class.class.getMethod("getModule");
+            detected = true;
+        } catch (NoSuchMethodException ignore) {
+            detected = false;
+        }
+        JAVA_9_PLUS = detected;
     }
 
     private static String simpleName(String className) {
