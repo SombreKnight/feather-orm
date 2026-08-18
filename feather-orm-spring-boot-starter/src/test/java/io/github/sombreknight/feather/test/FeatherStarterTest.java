@@ -1,0 +1,113 @@
+package io.github.sombreknight.feather.test;
+
+import io.github.sombreknight.feather.core.JdbcDAO;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+/**
+ * starter 集成测试：验证自动配置接管数据源、Bean 装配、CRUD、事务
+ *
+ * @author sombreknight
+ */
+@SpringBootTest(classes = StarterTestApplication.class, properties = {
+        "feather.datasource.primary.url=jdbc:h2:mem:feather-starter;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "feather.datasource.primary.username=sa",
+        "feather.datasource.primary.password=",
+        "feather.orm.row-mapper=javassist"
+})
+public class FeatherStarterTest {
+
+    @Autowired
+    private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    @Autowired
+    private JdbcDAO jdbcDAO;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
+    @Autowired
+    private AccountDAO accountDAO;
+
+    @BeforeEach
+    public void init() {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(namedParameterJdbcTemplate.getJdbcTemplate().getDataSource());
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS tb_account (" +
+                "id BIGINT PRIMARY KEY," +
+                "user_name VARCHAR(64)," +
+                "balance DECIMAL(12,2)," +
+                "status INT" +
+                ")");
+        jdbcTemplate.execute("DELETE FROM tb_account");
+    }
+
+    @Test
+    public void contextWiring() {
+        assertNotNull(namedParameterJdbcTemplate);
+        assertNotNull(jdbcDAO);
+        assertNotNull(transactionTemplate);
+        assertNotNull(accountDAO);
+    }
+
+    @Test
+    public void crud() {
+        AccountDO account = new AccountDO();
+        account.setUserName("张三");
+        account.setBalance(new BigDecimal("100.50"));
+        account.setStatus(AccountStatus.NORMAL);
+
+        assertNotNull(jdbcDAO.save(account));
+        assertNotNull(account.getId());
+
+        AccountDO found = accountDAO.findById(account.getId());
+        assertNotNull(found);
+        assertEquals("张三", found.getUserName());
+        assertEquals(0, new BigDecimal("100.50").compareTo(found.getBalance()));
+        assertEquals(AccountStatus.NORMAL, found.getStatus());
+
+        // 查询条件（枚举参数自动转换）
+        AccountDO byName = accountDAO.findOne(accountDAO.getQueryHelper().whereEqual("userName", "张三"));
+        assertNotNull(byName);
+        assertEquals(account.getId(), byName.getId());
+
+        // 更新
+        AccountDO update = new AccountDO();
+        update.setId(account.getId());
+        update.setBalance(new BigDecimal("200.00"));
+        assertNotNull(accountDAO.updateDomain(update));
+
+        AccountDO afterUpdate = accountDAO.findById(account.getId());
+        assertEquals(0, new BigDecimal("200.00").compareTo(afterUpdate.getBalance()));
+        assertEquals("张三", afterUpdate.getUserName()); // 未更新字段保持
+
+        // 删除
+        accountDAO.deleteDomain(afterUpdate);
+        assertNull(accountDAO.findById(account.getId()));
+    }
+
+    @Test
+    public void transactionRollback() {
+        assertThrows(RuntimeException.class, () -> transactionTemplate.executeWithoutResult(status -> {
+            AccountDO account = new AccountDO();
+            account.setUserName("回滚用户");
+            account.setStatus(AccountStatus.FROZEN);
+            accountDAO.saveDomain(account);
+            throw new RuntimeException("触发回滚");
+        }));
+
+        long count = accountDAO.count(accountDAO.getQueryHelper().whereEqual("userName", "回滚用户"));
+        assertEquals(0, count, "事务回滚后数据不应存在");
+    }
+}
