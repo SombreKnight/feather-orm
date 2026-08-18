@@ -17,18 +17,18 @@ public final class FieldAccessSupport {
     /**
      * 反射写入字段值
      *
-     * @param domain    目标对象
+     * @param entity    目标对象
      * @param fieldName 字段名
      * @param value     值
      */
-    public static void setFieldValue(Object domain, String fieldName, Object value)
+    public static void setFieldValue(Object entity, String fieldName, Object value)
             throws java.sql.SQLException {
         try {
-            Field field = ReflectUtils.findField(domain.getClass(), fieldName, true);
+            Field field = ReflectUtils.findField(entity.getClass(), fieldName, true);
             if (field == null) {
                 throw new IllegalStateException("未找到字段: " + fieldName);
             }
-            ReflectUtils.setFieldValue(field, domain, value);
+            ReflectUtils.setFieldValue(field, entity, value);
         } catch (Exception e) {
             throw new java.sql.SQLException("写入字段[" + fieldName + "]失败", e);
         }

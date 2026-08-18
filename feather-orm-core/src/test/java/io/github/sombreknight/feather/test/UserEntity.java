@@ -2,7 +2,7 @@ package io.github.sombreknight.feather.test;
 
 import io.github.sombreknight.feather.annotation.Column;
 import io.github.sombreknight.feather.annotation.Table;
-import io.github.sombreknight.feather.core.BaseDO;
+import io.github.sombreknight.feather.core.BaseEntity;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ import java.util.List;
  * @author sombreknight
  */
 @Table("tb_user")
-public class UserDO extends BaseDO {
+public class UserEntity extends BaseEntity {
 
     /** 约定映射 user_name */
     private String userName;

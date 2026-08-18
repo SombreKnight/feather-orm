@@ -1,8 +1,8 @@
 package io.github.sombreknight.feather.samples;
 
 import io.github.sombreknight.feather.samples.dao.UserDAO;
-import io.github.sombreknight.feather.samples.domain.OrderStatus;
-import io.github.sombreknight.feather.samples.domain.UserDO;
+import io.github.sombreknight.feather.samples.entity.OrderStatus;
+import io.github.sombreknight.feather.samples.entity.UserEntity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,14 +30,14 @@ public class SampleApplicationTests {
 
     @Test
     public void crud() {
-        UserDO user = new UserDO();
+        UserEntity user = new UserEntity();
         user.setUserName("端到端测试");
         user.setAge(99);
         user.setStatus(OrderStatus.CANCELLED);
-        assertTrue(userDAO.saveDomain(user));
+        assertTrue(userDAO.saveEntity(user));
         assertNotNull(user.getId());
 
-        UserDO found = userDAO.findById(user.getId());
+        UserEntity found = userDAO.findById(user.getId());
         assertNotNull(found);
         assertEquals("端到端测试", found.getUserName());
         assertEquals(OrderStatus.CANCELLED, found.getStatus());

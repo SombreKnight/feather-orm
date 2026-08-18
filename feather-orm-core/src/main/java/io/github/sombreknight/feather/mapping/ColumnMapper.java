@@ -1,7 +1,7 @@
 package io.github.sombreknight.feather.mapping;
 
 import io.github.sombreknight.feather.annotation.Table;
-import io.github.sombreknight.feather.core.BaseDO;
+import io.github.sombreknight.feather.core.BaseEntity;
 import io.github.sombreknight.feather.exception.FeatherDaoException;
 import io.github.sombreknight.feather.util.ReflectUtils;
 
@@ -19,7 +19,7 @@ import java.util.List;
  *
  * @author sombreknight
  */
-public class ColumnMapper<T extends BaseDO> {
+public class ColumnMapper<T extends BaseEntity> {
 
     private static final String PK_FIELD_NAME = "id";
 

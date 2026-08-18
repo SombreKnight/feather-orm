@@ -7,7 +7,7 @@
 
 ## 特性
 
-- **继承式 CRUD**：`class UserDAO extends BaseDAO<UserDO>` 即获得增删改查、批量、分页、单字段查询全套能力
+- **继承式 CRUD**：`class UserDAO extends BaseDAO<UserEntity>` 即获得增删改查、批量、分页、单字段查询全套能力
 - **驼峰 ↔ 下划线约定**：`userName` 自动映射 `user_name`，`@Column` 仅用于不规则列名
 - **类型映射注册表**（`TypeHandler` SPI）：
   - 简单类型（数值 / String / BigDecimal / byte[] / 时间）原生存取
@@ -56,7 +56,7 @@ feather:
 
 ```java
 @Table("tb_user")
-public class UserDO extends BaseDO {
+public class UserEntity extends BaseEntity {
 
     private String userName;            // 约定映射 user_name
     private Integer age;
@@ -83,7 +83,7 @@ public enum OrderStatus implements CodeEnum<Integer> {
 
 ```java
 @Repository
-public class UserDAO extends BaseDAO<UserDO> {
+public class UserDAO extends BaseDAO<UserEntity> {
 }
 ```
 
@@ -94,20 +94,20 @@ public class UserDAO extends BaseDAO<UserDO> {
 private UserDAO userDAO;
 
 // 新增
-userDAO.saveDomain(user);
+userDAO.saveEntity(user);
 
 // 按主键
-UserDO user = userDAO.findById(id);
-List<UserDO> list = userDAO.findByIds(ids);
+UserEntity user = userDAO.findById(id);
+List<UserEntity> list = userDAO.findByIds(ids);
 
 // 条件查询（面向对象拼 SQL）
-List<UserDO> adults = userDAO.findList(userDAO.getQueryHelper()
+List<UserEntity> adults = userDAO.findList(userDAO.getQueryHelper()
         .whereEqual("userName", "张三")
         .whereGte("age", 18)
         .orderByDesc("age"));
 
 // 分页
-PagingResult<UserDO> page = userDAO.findPageByPageNum(
+PagingResult<UserEntity> page = userDAO.findPageByPageNum(
         userDAO.getQueryHelper().limit(1, 10));
 
 // 单字段
@@ -115,13 +115,13 @@ String name = userDAO.findField(String.class,
         userDAO.getQueryHelper().selectFields("userName").whereEqual("id", id).limitOne());
 
 // 更新（仅更新非 null 字段，null 字段不触碰）
-UserDO update = new UserDO();
+UserEntity update = new UserEntity();
 update.setId(id);
 update.setUserName("李四改");
-userDAO.updateDomain(update);
+userDAO.updateEntity(update);
 
 // 删除
-userDAO.deleteDomain(user);
+userDAO.deleteEntity(user);
 ```
 
 ## 类型映射一览

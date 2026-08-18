@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * <p>用法：</p>
  * <pre>
  * &#064;Table("tb_user")
- * public class UserDO extends BaseDO {
+ * public class UserEntity extends BaseEntity {
  *     private String userName;   // 约定映射为 user_name
  * }
  * </pre>

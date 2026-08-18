@@ -1,7 +1,7 @@
 package io.github.sombreknight.feather.samples.dao;
 
 import io.github.sombreknight.feather.core.BaseDAO;
-import io.github.sombreknight.feather.samples.domain.UserDO;
+import io.github.sombreknight.feather.samples.entity.UserEntity;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -10,5 +10,5 @@ import org.springframework.stereotype.Repository;
  * @author sombreknight
  */
 @Repository
-public class UserDAO extends BaseDAO<UserDO> {
+public class UserDAO extends BaseDAO<UserEntity> {
 }

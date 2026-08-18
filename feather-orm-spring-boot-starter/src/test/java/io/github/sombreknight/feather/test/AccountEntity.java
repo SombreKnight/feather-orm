@@ -1,7 +1,7 @@
 package io.github.sombreknight.feather.test;
 
 import io.github.sombreknight.feather.annotation.Table;
-import io.github.sombreknight.feather.core.BaseDO;
+import io.github.sombreknight.feather.core.BaseEntity;
 
 import java.math.BigDecimal;
 
@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  * @author sombreknight
  */
 @Table("tb_account")
-public class AccountDO extends BaseDO {
+public class AccountEntity extends BaseEntity {
 
     private String userName;
 

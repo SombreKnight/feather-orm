@@ -84,12 +84,12 @@ public class FeatherOrmCrudTest {
 
     @Test
     public void t01_saveAndFindById() {
-        UserDO user = newUser("张三", 18, OrderStatus.PAID, TypeEnum.TEST1);
+        UserEntity user = newUser("张三", 18, OrderStatus.PAID, TypeEnum.TEST1);
 
-        assertTrue(userDAO.saveDomain(user));
+        assertTrue(userDAO.saveEntity(user));
         assertNotNull(user.getId());
 
-        UserDO found = userDAO.findById(user.getId());
+        UserEntity found = userDAO.findById(user.getId());
         assertNotNull(found);
         assertEquals("张三", found.getUserName());
         assertEquals(18, found.getAge());
@@ -104,15 +104,15 @@ public class FeatherOrmCrudTest {
 
     @Test
     public void t02_updateOnlyNonNull() {
-        UserDO user = newUser("李四", 25, OrderStatus.CREATED, TypeEnum.TEST2);
-        userDAO.saveDomain(user);
+        UserEntity user = newUser("李四", 25, OrderStatus.CREATED, TypeEnum.TEST2);
+        userDAO.saveEntity(user);
 
-        UserDO update = new UserDO();
+        UserEntity update = new UserEntity();
         update.setId(user.getId());
         update.setUserName("李四改");
-        assertTrue(userDAO.updateDomain(update));
+        assertTrue(userDAO.updateEntity(update));
 
-        UserDO found = userDAO.findById(user.getId());
+        UserEntity found = userDAO.findById(user.getId());
         assertEquals("李四改", found.getUserName());
         // 未更新的字段保持原值
         assertEquals(25, found.getAge());
@@ -122,13 +122,13 @@ public class FeatherOrmCrudTest {
 
     @Test
     public void t03_queryHelper() {
-        UserDO u1 = newUser("王五", 30, OrderStatus.PAID, TypeEnum.TEST1);
-        UserDO u2 = newUser("赵六", 20, OrderStatus.CREATED, TypeEnum.TEST2);
-        userDAO.saveDomain(u1);
-        userDAO.saveDomain(u2);
+        UserEntity u1 = newUser("王五", 30, OrderStatus.PAID, TypeEnum.TEST1);
+        UserEntity u2 = newUser("赵六", 20, OrderStatus.CREATED, TypeEnum.TEST2);
+        userDAO.saveEntity(u1);
+        userDAO.saveEntity(u2);
 
         // whereEqual
-        List<UserDO> list = userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", "王五"));
+        List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", "王五"));
         assertEquals(1, list.size());
         assertEquals("王五", list.get(0).getUserName());
 
@@ -144,7 +144,7 @@ public class FeatherOrmCrudTest {
         assertEquals(1, count);
 
         // findOne
-        UserDO one = userDAO.findOne(userDAO.getQueryHelper().whereEqual("id", u2.getId()));
+        UserEntity one = userDAO.findOne(userDAO.getQueryHelper().whereEqual("id", u2.getId()));
         assertNotNull(one);
         assertEquals("赵六", one.getUserName());
 
@@ -168,9 +168,9 @@ public class FeatherOrmCrudTest {
     @Test
     public void t04_pagination() {
         for (int i = 0; i < 5; i++) {
-            userDAO.saveDomain(newUser("分页用户" + i, 20 + i, OrderStatus.CREATED, TypeEnum.TEST1));
+            userDAO.saveEntity(newUser("分页用户" + i, 20 + i, OrderStatus.CREATED, TypeEnum.TEST1));
         }
-        PagingResult<UserDO> result = userDAO.findPageByPageNum(
+        PagingResult<UserEntity> result = userDAO.findPageByPageNum(
                 userDAO.getQueryHelper().withTotal(true).limit(1, 2));
         assertEquals(5, result.getPageInfo().getTotal());
         assertEquals(2, result.getData().size());
@@ -179,50 +179,50 @@ public class FeatherOrmCrudTest {
 
     @Test
     public void t05_batch() {
-        List<UserDO> users = new ArrayList<>();
+        List<UserEntity> users = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             users.add(newUser("批量" + i, 10 + i, OrderStatus.PAID, TypeEnum.TEST2));
         }
-        assertTrue(userDAO.saveDomainList(users));
-        for (UserDO user : users) {
+        assertTrue(userDAO.saveEntityList(users));
+        for (UserEntity user : users) {
             assertNotNull(user.getId());
         }
 
         List<Long> ids = new ArrayList<>();
-        for (UserDO user : users) {
+        for (UserEntity user : users) {
             ids.add(user.getId());
         }
-        List<UserDO> found = userDAO.findByIds(ids);
+        List<UserEntity> found = userDAO.findByIds(ids);
         assertEquals(3, found.size());
         assertNotNull(userDAO.findMapByIds(ids).get(ids.get(0)));
     }
 
     @Test
     public void t06_nullJsonField() {
-        UserDO user = newUser("空JSON", 40, OrderStatus.CANCELLED, TypeEnum.TEST1);
+        UserEntity user = newUser("空JSON", 40, OrderStatus.CANCELLED, TypeEnum.TEST1);
         user.setExtInfo(null);  // JSON 字段为 null：insert 跳过该列
         user.setTags(null);
-        userDAO.saveDomain(user);
+        userDAO.saveEntity(user);
 
-        UserDO found = userDAO.findById(user.getId());
+        UserEntity found = userDAO.findById(user.getId());
         assertNull(found.getExtInfo());
         assertNull(found.getTags());
     }
 
     @Test
     public void t07_delete() {
-        UserDO user = newUser("待删除", 50, OrderStatus.CREATED, TypeEnum.TEST1);
-        userDAO.saveDomain(user);
+        UserEntity user = newUser("待删除", 50, OrderStatus.CREATED, TypeEnum.TEST1);
+        userDAO.saveEntity(user);
         Long id = user.getId();
 
-        assertTrue(userDAO.deleteDomain(user));
+        assertTrue(userDAO.deleteEntity(user));
         assertNull(userDAO.findById(id));
     }
 
     @Test
     public void t08_forceMaster() {
-        UserDO user = newUser("主库用户", 60, OrderStatus.PAID, TypeEnum.TEST2);
-        userDAO.saveDomain(user);
+        UserEntity user = newUser("主库用户", 60, OrderStatus.PAID, TypeEnum.TEST2);
+        userDAO.saveEntity(user);
         userDAO.forceMaster(); // 单节点下为 no-op，不应抛异常
         assertNotNull(userDAO.findById(user.getId()));
     }
@@ -241,28 +241,28 @@ public class FeatherOrmCrudTest {
 
     @Test
     public void t10_updateBatch() {
-        UserDO u1 = newUser("批量改1", 30, OrderStatus.PAID, TypeEnum.TEST1);
-        UserDO u2 = newUser("批量改2", 40, OrderStatus.CREATED, TypeEnum.TEST2);
-        userDAO.saveDomain(u1);
-        userDAO.saveDomain(u2);
+        UserEntity u1 = newUser("批量改1", 30, OrderStatus.PAID, TypeEnum.TEST1);
+        UserEntity u2 = newUser("批量改2", 40, OrderStatus.CREATED, TypeEnum.TEST2);
+        userDAO.saveEntity(u1);
+        userDAO.saveEntity(u2);
 
         // 仅设置部分字段：u1 改名字，u2 改 age；其余字段为 null（不得触碰原值）
-        UserDO up1 = new UserDO();
+        UserEntity up1 = new UserEntity();
         up1.setId(u1.getId());
         up1.setUserName("批量改1-新");
-        UserDO up2 = new UserDO();
+        UserEntity up2 = new UserEntity();
         up2.setId(u2.getId());
         up2.setAge(50);
 
-        assertTrue(userDAO.updateDomainList(Arrays.asList(up1, up2)));
+        assertTrue(userDAO.updateEntityList(Arrays.asList(up1, up2)));
 
-        UserDO f1 = userDAO.findById(u1.getId());
+        UserEntity f1 = userDAO.findById(u1.getId());
         assertEquals("批量改1-新", f1.getUserName());
         assertEquals(30, f1.getAge());
         assertEquals(OrderStatus.PAID, f1.getStatus());
         assertEquals(TypeEnum.TEST1, f1.getType());
 
-        UserDO f2 = userDAO.findById(u2.getId());
+        UserEntity f2 = userDAO.findById(u2.getId());
         assertEquals("批量改2", f2.getUserName());
         assertEquals(50, f2.getAge());
         assertEquals(OrderStatus.CREATED, f2.getStatus());
@@ -271,8 +271,8 @@ public class FeatherOrmCrudTest {
 
     // ==================== 工具 ====================
 
-    private static UserDO newUser(String name, int age, OrderStatus status, TypeEnum type) {
-        UserDO user = new UserDO();
+    private static UserEntity newUser(String name, int age, OrderStatus status, TypeEnum type) {
+        UserEntity user = new UserEntity();
         user.setUserName(name);
         user.setAge(age);
         user.setStatus(status);

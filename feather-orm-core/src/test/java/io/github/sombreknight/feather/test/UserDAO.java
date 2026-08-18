@@ -7,5 +7,5 @@ import io.github.sombreknight.feather.core.BaseDAO;
  *
  * @author sombreknight
  */
-public class UserDAO extends BaseDAO<UserDO> {
+public class UserDAO extends BaseDAO<UserEntity> {
 }

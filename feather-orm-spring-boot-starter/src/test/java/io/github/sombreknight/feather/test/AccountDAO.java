@@ -9,5 +9,5 @@ import org.springframework.stereotype.Repository;
  * @author sombreknight
  */
 @Repository
-public class AccountDAO extends BaseDAO<AccountDO> {
+public class AccountDAO extends BaseDAO<AccountEntity> {
 }

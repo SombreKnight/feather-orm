@@ -20,7 +20,7 @@ import java.util.Map;
 public class JavassistRowMapperFactory implements RowMapperFactory {
 
     @Override
-    public <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean vo) {
+    public <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean dto) {
         try {
             String className = clazz.getName() + "FeatherRowMapper";
 
@@ -36,7 +36,7 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
             ctClass.addConstructor(javassist.CtNewConstructor.make(
                     "public " + simpleName(className) + "(" + FieldHandler.class.getName() + "[] handlers) { this.handlers = handlers; }",
                     ctClass));
-            ctClass.addMethod(javassist.CtNewMethod.make(buildMapRowBody(clazz, handlers, vo), ctClass));
+            ctClass.addMethod(javassist.CtNewMethod.make(buildMapRowBody(clazz, handlers, dto), ctClass));
 
             // 显式声明 Java 8 字节码版本，保证在低版本 JVM 上可用
             try {
@@ -92,10 +92,10 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
     /**
      * 生成 mapRow 方法体
      */
-    private String buildMapRowBody(Class<?> clazz, FieldHandler[] handlers, boolean vo) {
+    private String buildMapRowBody(Class<?> clazz, FieldHandler[] handlers, boolean dto) {
         StringBuilder sb = new StringBuilder();
         sb.append("public Object mapRow(java.sql.ResultSet rs, int index) throws java.sql.SQLException {\n");
-        sb.append("    ").append(clazz.getName()).append(" domain = new ").append(clazz.getName()).append("();\n");
+        sb.append("    ").append(clazz.getName()).append(" entity = new ").append(clazz.getName()).append("();\n");
 
         for (int i = 0; i < handlers.length; i++) {
             FieldHandler handler = handlers[i];
@@ -106,19 +106,19 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
             String setter = findSetter(clazz, field);
             if (setter != null) {
                 if (field.getType().isPrimitive()) {
-                    sb.append("        domain.").append(setter).append("(")
+                    sb.append("        entity.").append(setter).append("(")
                             .append(unbox(field.getType(), expr)).append(");\n");
                 } else {
-                    sb.append("        domain.").append(setter).append("((")
+                    sb.append("        entity.").append(setter).append("((")
                             .append(typeName(field.getType())).append(") ").append(expr).append(");\n");
                 }
             } else {
                 sb.append("        ").append(FieldAccessSupport.class.getName())
-                        .append(".setFieldValue(domain, \"").append(field.getName())
+                        .append(".setFieldValue(entity, \"").append(field.getName())
                         .append("\", ").append(expr).append(");\n");
             }
             sb.append("    } catch (java.sql.SQLException e) {\n");
-            if (vo) {
+            if (dto) {
                 sb.append("        // 结果集中不存在该列，跳过: ").append(field.getName()).append("\n");
             } else {
                 sb.append("        throw new java.sql.SQLException(\"Feather 实体映射失败: 列[")
@@ -128,7 +128,7 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
             sb.append("    }\n");
         }
 
-        sb.append("    return domain;\n");
+        sb.append("    return entity;\n");
         sb.append("}\n");
         return sb.toString();
     }

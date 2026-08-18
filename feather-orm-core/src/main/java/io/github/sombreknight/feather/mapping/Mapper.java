@@ -1,6 +1,6 @@
 package io.github.sombreknight.feather.mapping;
 
-import io.github.sombreknight.feather.core.BaseDO;
+import io.github.sombreknight.feather.core.BaseEntity;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +24,7 @@ public final class Mapper {
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends BaseDO> ColumnMapper<T> getColumnMapper(Class<T> clazz) {
+    public <T extends BaseEntity> ColumnMapper<T> getColumnMapper(Class<T> clazz) {
         return (ColumnMapper<T>) clazzMapperCache.computeIfAbsent(clazz,
                 c -> new ColumnMapper<>((Class<T>) c));
     }

@@ -28,7 +28,7 @@ import java.util.Map;
 /**
  * Feather ORM 核心执行引擎（基于 NamedParameterJdbcTemplate）
  *
- * <p>能力：CRUD、批量、分页、单字段查询、只读 VO 映射、一主多从路由（可选）、强制主库。</p>
+ * <p>能力：CRUD、批量、分页、单字段查询、只读 DTO 映射、一主多从路由（可选）、强制主库。</p>
  *
  * <p>读写分离规则：写操作与按主键查询走主库；普通查询走从库（未配置从库时全部走主库）。</p>
  *
@@ -89,19 +89,19 @@ public class JdbcDAO {
     /**
      * 新增实体；id 为空时自动生成（雪花），用户也可自行指定 id
      */
-    public <T extends BaseDO> int save(T domain) {
-        if (domain == null) {
-            throw new FeatherDaoException("JdbcDAO.save: domain 不能为 null");
+    public <T extends BaseEntity> int save(T entity) {
+        if (entity == null) {
+            throw new FeatherDaoException("JdbcDAO.save: entity 不能为 null");
         }
-        if (domain.getId() == null) {
-            domain.setId(idGenerator.nextId());
+        if (entity.getId() == null) {
+            entity.setId(idGenerator.nextId());
         }
-        InsertStatement statement = buildInsert(domain);
+        InsertStatement statement = buildInsert(entity);
         setDataSourceKey(true);
         try {
             return namedParameterJdbcTemplate.update(statement.sql, statement.params);
         } catch (Exception e) {
-            throw new FeatherDaoException("保存实体[" + domain.getClass().getName() + "]失败", e);
+            throw new FeatherDaoException("保存实体[" + entity.getClass().getName() + "]失败", e);
         } finally {
             clearDataSourceKey();
         }
@@ -110,7 +110,7 @@ public class JdbcDAO {
     /**
      * 批量新增；按"非空列集合"分组批量执行（组内共享同一 SQL）
      */
-    public <T extends BaseDO> int[] saveBatch(List<T> entities) {
+    public <T extends BaseEntity> int[] saveBatch(List<T> entities) {
         if (entities == null || entities.isEmpty()) {
             return new int[0];
         }
@@ -154,12 +154,12 @@ public class JdbcDAO {
     /**
      * 更新实体：仅更新非 null 字段；null 字段不触碰（避免误清数据）
      */
-    public <T extends BaseDO> int update(T domain) {
-        if (domain == null || domain.getId() == null) {
-            throw new FeatherDaoException("JdbcDAO.update: domain 或 id 不能为 null");
+    public <T extends BaseEntity> int update(T entity) {
+        if (entity == null || entity.getId() == null) {
+            throw new FeatherDaoException("JdbcDAO.update: entity 或 id 不能为 null");
         }
         @SuppressWarnings("unchecked")
-        Class<T> clazz = (Class<T>) domain.getClass();
+        Class<T> clazz = (Class<T>) entity.getClass();
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
 
@@ -170,7 +170,7 @@ public class JdbcDAO {
             if (PK_FIELD_NAME.equals(field.getName())) {
                 continue; // 主键不进 SET
             }
-            Object value = ReflectUtils.getFieldValue(field, domain);
+            Object value = ReflectUtils.getFieldValue(field, entity);
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             if (jdbcValue == null) {
                 continue; // 非 null 字段才参与更新
@@ -185,7 +185,7 @@ public class JdbcDAO {
             log.warn("更新实体[{}]时没有可更新的非空字段", clazz.getName());
             return 0;
         }
-        params.put(PK_FIELD_NAME, domain.getId());
+        params.put(PK_FIELD_NAME, entity.getId());
         String sql = " update " + mapper.getQuotedTableName() + " set " + sets
                 + " where " + mapper.getQuotedIdColumn() + " = :" + PK_FIELD_NAME;
 
@@ -205,7 +205,7 @@ public class JdbcDAO {
      * <p>SET 列 = COALESCE(:列, 原列)，参数为 null 时保留原值，非 null 时更新，
      * 与单条 {@link #update} 的语义完全一致，且一次 batchUpdate 完成。</p>
      */
-    public <T extends BaseDO> int[] updateBatch(List<T> entities) {
+    public <T extends BaseEntity> int[] updateBatch(List<T> entities) {
         if (entities == null || entities.isEmpty()) {
             return new int[0];
         }
@@ -266,15 +266,15 @@ public class JdbcDAO {
 
     // ==================== 删除 ====================
 
-    public <T extends BaseDO> int deleteDomain(Class<T> clazz, T domain) {
-        if (domain == null || domain.getId() == null) {
-            throw new FeatherDaoException("JdbcDAO.deleteDomain: domain 或 id 不能为 null");
+    public <T extends BaseEntity> int deleteEntity(Class<T> clazz, T entity) {
+        if (entity == null || entity.getId() == null) {
+            throw new FeatherDaoException("JdbcDAO.deleteEntity: entity 或 id 不能为 null");
         }
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         String sql = mapper.getDeleteSql() + " where " + mapper.getQuotedIdColumn() + " = :" + PK_FIELD_NAME;
         setDataSourceKey(true);
         try {
-            return namedParameterJdbcTemplate.update(sql, Collections.singletonMap(PK_FIELD_NAME, domain.getId()));
+            return namedParameterJdbcTemplate.update(sql, Collections.singletonMap(PK_FIELD_NAME, entity.getId()));
         } catch (Exception e) {
             throw new FeatherDaoException("删除实体[" + clazz.getName() + "]失败", e);
         } finally {
@@ -282,13 +282,13 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseDO> int deleteDomains(Class<T> clazz, List<T> domains) {
-        if (domains == null || domains.isEmpty()) {
+    public <T extends BaseEntity> int deleteEntities(Class<T> clazz, List<T> entities) {
+        if (entities == null || entities.isEmpty()) {
             return 0;
         }
-        List<Long> ids = new ArrayList<>(domains.size());
-        for (T domain : domains) {
-            ids.add(domain.getId());
+        List<Long> ids = new ArrayList<>(entities.size());
+        for (T entity : entities) {
+            ids.add(entity.getId());
         }
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         String sql = mapper.getDeleteSql() + " where " + mapper.getQuotedIdColumn() + " in (:" + PK_FIELD_NAME + ")";
@@ -304,7 +304,7 @@ public class JdbcDAO {
 
     // ==================== 按主键查询 ====================
 
-    public <T extends BaseDO> T findById(Class<T> clazz, Long id) {
+    public <T extends BaseEntity> T findById(Class<T> clazz, Long id) {
         if (id == null || id <= 0) {
             return null;
         }
@@ -326,7 +326,7 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseDO> List<T> findByIds(Class<T> clazz, Collection<Long> ids) {
+    public <T extends BaseEntity> List<T> findByIds(Class<T> clazz, Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();
         }
@@ -353,7 +353,7 @@ public class JdbcDAO {
 
     // ==================== 条件查询 ====================
 
-    public <T extends BaseDO> T findOne(Class<T> clazz, String whereSql, SqlParam param) {
+    public <T extends BaseEntity> T findOne(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         String sql = mapper.getFromSql() + whereSql;
@@ -372,7 +372,7 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseDO> List<T> findList(Class<T> clazz, String whereSql, SqlParam param) {
+    public <T extends BaseEntity> List<T> findList(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         if (whereSql == null || whereSql.trim().isEmpty()) {
             throw new FeatherDaoException("findList 需要 where 条件，请使用 QueryHelper 拼装");
@@ -390,7 +390,7 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseDO> long count(Class<T> clazz, String whereSql, SqlParam param) {
+    public <T extends BaseEntity> long count(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         String sql = mapper.getCountSql() + whereSql;
@@ -408,7 +408,7 @@ public class JdbcDAO {
     /**
      * 分页查询实体
      */
-    public <T extends BaseDO> PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param,
+    public <T extends BaseEntity> PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param,
                                                                 int page, int size, boolean withTotal) {
         checkParam(param);
         int skip = (page - 1) * size;
@@ -433,40 +433,40 @@ public class JdbcDAO {
         }
     }
 
-    // ==================== 只读 VO 查询 ====================
+    // ==================== 只读 DTO 查询 ====================
 
     /**
-     * 查询单个 VO（任意 POJO，列不存在自动跳过）
+     * 查询单个 DTO（任意 POJO，查询结果列不存在自动跳过）
      */
-    public <T> T findVO(Class<T> voClass, String sql, SqlParam param) {
+    public <T> T findDto(Class<T> dtoClass, String sql, SqlParam param) {
         checkParam(param);
         setDataSourceKey(false);
         try {
             return namedParameterJdbcTemplate.queryForObject(sql, paramToMap(param),
-                    rowMapperSupport.getVORowMapper(voClass));
+                    rowMapperSupport.getDtoRowMapper(dtoClass));
         } catch (EmptyResultDataAccessException e) {
             return null;
         } catch (Exception e) {
-            throw new FeatherDaoException("findVO[" + voClass.getName() + "]失败", e);
+            throw new FeatherDaoException("findDto[" + dtoClass.getName() + "]失败", e);
         } finally {
             clearDataSourceKey();
         }
     }
 
-    public <T> List<T> findVOList(Class<T> voClass, String sql, SqlParam param) {
+    public <T> List<T> findDtoList(Class<T> dtoClass, String sql, SqlParam param) {
         checkParam(param);
         setDataSourceKey(false);
         try {
             return namedParameterJdbcTemplate.query(sql, paramToMap(param),
-                    rowMapperSupport.getVORowMapper(voClass));
+                    rowMapperSupport.getDtoRowMapper(dtoClass));
         } catch (Exception e) {
-            throw new FeatherDaoException("findVOList[" + voClass.getName() + "]失败", e);
+            throw new FeatherDaoException("findDtoList[" + dtoClass.getName() + "]失败", e);
         } finally {
             clearDataSourceKey();
         }
     }
 
-    public <T> PagingResult<T> findVOPageByPageNum(Class<T> voClass, String sql, SqlParam param,
+    public <T> PagingResult<T> findDtoPageByPageNum(Class<T> dtoClass, String sql, SqlParam param,
                                                    int page, int size, boolean withTotal) {
         checkParam(param);
         int skip = (page - 1) * size;
@@ -481,10 +481,10 @@ public class JdbcDAO {
         setDataSourceKey(false);
         try {
             List<T> list = namedParameterJdbcTemplate.query(pageSql, paramToMap(param),
-                    rowMapperSupport.getVORowMapper(voClass));
+                    rowMapperSupport.getDtoRowMapper(dtoClass));
             return new PagingResult<>(new PageInfo(total, page, size), list);
         } catch (Exception e) {
-            throw new FeatherDaoException("VO 分页查询[" + voClass.getName() + "]失败", e);
+            throw new FeatherDaoException("DTO 分页查询[" + dtoClass.getName() + "]失败", e);
         } finally {
             clearDataSourceKey();
         }
@@ -559,8 +559,8 @@ public class JdbcDAO {
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends BaseDO> InsertStatement buildInsert(T domain) {
-        Class<T> clazz = (Class<T>) domain.getClass();
+    private <T extends BaseEntity> InsertStatement buildInsert(T entity) {
+        Class<T> clazz = (Class<T>) entity.getClass();
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
 
@@ -569,7 +569,7 @@ public class JdbcDAO {
         Map<String, Object> params = new HashMap<>();
         for (FieldHandler handler : handlers) {
             Field field = handler.getMeta().getField();
-            Object value = ReflectUtils.getFieldValue(field, domain);
+            Object value = ReflectUtils.getFieldValue(field, entity);
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             if (jdbcValue == null) {
                 continue; // null 值跳过：insert 为 NULL（DB 默认值生效），绝不写空串
@@ -592,9 +592,9 @@ public class JdbcDAO {
     /**
      * 按指定列集合构建参数（批量插入组内实体使用，保证与组 SQL 列一致）
      */
-    private <T extends BaseDO> Map<String, Object> buildParams(T domain, List<String> fieldNames) {
+    private <T extends BaseEntity> Map<String, Object> buildParams(T entity, List<String> fieldNames) {
         @SuppressWarnings("unchecked")
-        Class<T> clazz = (Class<T>) domain.getClass();
+        Class<T> clazz = (Class<T>) entity.getClass();
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
         Map<String, Object> params = new HashMap<>();
         for (FieldHandler handler : handlers) {
@@ -602,7 +602,7 @@ public class JdbcDAO {
             if (!fieldNames.contains(fieldName)) {
                 continue;
             }
-            Object value = ReflectUtils.getFieldValue(handler.getMeta().getField(), domain);
+            Object value = ReflectUtils.getFieldValue(handler.getMeta().getField(), entity);
             // 必须经过 TypeHandler 转换（枚举→业务码、复杂对象→JSON、FeatherDate→Timestamp）
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             params.put(fieldName, jdbcValue);
@@ -613,13 +613,13 @@ public class JdbcDAO {
     /**
      * 实体的非空字段名列表（作为批量插入分组 key）
      */
-    private <T extends BaseDO> List<String> nonNullFieldNames(T domain) {
+    private <T extends BaseEntity> List<String> nonNullFieldNames(T entity) {
         @SuppressWarnings("unchecked")
-        Class<T> clazz = (Class<T>) domain.getClass();
+        Class<T> clazz = (Class<T>) entity.getClass();
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
         List<String> names = new ArrayList<>();
         for (FieldHandler handler : handlers) {
-            Object value = ReflectUtils.getFieldValue(handler.getMeta().getField(), domain);
+            Object value = ReflectUtils.getFieldValue(handler.getMeta().getField(), entity);
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             if (jdbcValue != null) {
                 names.add(handler.getMeta().getField().getName());

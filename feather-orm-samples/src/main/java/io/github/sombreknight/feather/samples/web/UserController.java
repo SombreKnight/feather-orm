@@ -2,7 +2,7 @@ package io.github.sombreknight.feather.samples.web;
 
 import io.github.sombreknight.feather.core.PagingResult;
 import io.github.sombreknight.feather.samples.dao.UserDAO;
-import io.github.sombreknight.feather.samples.domain.UserDO;
+import io.github.sombreknight.feather.samples.entity.UserEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,8 +33,8 @@ public class UserController {
      * 新增
      */
     @PostMapping
-    public UserDO create(@RequestBody UserDO user) {
-        userDAO.saveDomain(user);
+    public UserEntity create(@RequestBody UserEntity user) {
+        userDAO.saveEntity(user);
         return user;
     }
 
@@ -42,7 +42,7 @@ public class UserController {
      * 详情
      */
     @GetMapping("/{id}")
-    public UserDO get(@PathVariable Long id) {
+    public UserEntity get(@PathVariable Long id) {
         return userDAO.findById(id);
     }
 
@@ -50,7 +50,7 @@ public class UserController {
      * 列表（可选按姓名过滤）
      */
     @GetMapping
-    public List<UserDO> list(@RequestParam(required = false) String userName) {
+    public List<UserEntity> list(@RequestParam(required = false) String userName) {
         if (StringUtils.hasText(userName)) {
             return userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", userName).orderByAsc("id"));
         }
@@ -61,9 +61,9 @@ public class UserController {
      * 更新（仅非 null 字段）
      */
     @PutMapping("/{id}")
-    public boolean update(@PathVariable Long id, @RequestBody UserDO user) {
+    public boolean update(@PathVariable Long id, @RequestBody UserEntity user) {
         user.setId(id);
-        return userDAO.updateDomain(user);
+        return userDAO.updateEntity(user);
     }
 
     /**
@@ -71,16 +71,16 @@ public class UserController {
      */
     @DeleteMapping("/{id}")
     public boolean delete(@PathVariable Long id) {
-        UserDO user = new UserDO();
+        UserEntity user = new UserEntity();
         user.setId(id);
-        return userDAO.deleteDomain(user);
+        return userDAO.deleteEntity(user);
     }
 
     /**
      * 分页
      */
     @GetMapping("/page")
-    public PagingResult<UserDO> page(@RequestParam(defaultValue = "1") int page,
+    public PagingResult<UserEntity> page(@RequestParam(defaultValue = "1") int page,
                                      @RequestParam(defaultValue = "10") int size) {
         return userDAO.findPageByPageNum(userDAO.getQueryHelper().limit(page, size));
     }

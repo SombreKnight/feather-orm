@@ -1,4 +1,4 @@
-package io.github.sombreknight.feather.samples.domain;
+package io.github.sombreknight.feather.samples.entity;
 
 /**
  * 扩展信息：作为 JSON 列存储

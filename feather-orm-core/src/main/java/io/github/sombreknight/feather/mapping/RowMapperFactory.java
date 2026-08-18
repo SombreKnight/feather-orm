@@ -17,9 +17,9 @@ public interface RowMapperFactory {
      *
      * @param clazz    目标实体类型
      * @param handlers 字段处理器（已按字段顺序解析好）
-     * @param vo       是否为只读 VO 映射（true 时列不存在则跳过，false 时列不存在抛异常）
+     * @param dto       是否为 DTO 映射（true 时查询结果列可能不完整，列不存在则跳过；false 时列不存在抛异常）
      * @param <T>      实体泛型
      * @return RowMapper
      */
-    <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean vo);
+    <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean dto);
 }

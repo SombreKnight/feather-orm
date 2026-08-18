@@ -1,9 +1,9 @@
 package io.github.sombreknight.feather.samples.config;
 
 import io.github.sombreknight.feather.samples.dao.UserDAO;
-import io.github.sombreknight.feather.samples.domain.ExtInfo;
-import io.github.sombreknight.feather.samples.domain.OrderStatus;
-import io.github.sombreknight.feather.samples.domain.UserDO;
+import io.github.sombreknight.feather.samples.entity.ExtInfo;
+import io.github.sombreknight.feather.samples.entity.OrderStatus;
+import io.github.sombreknight.feather.samples.entity.UserEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -31,7 +31,7 @@ public class SampleDataInitializer implements CommandLineRunner {
             return;
         }
         for (int i = 1; i <= 3; i++) {
-            UserDO user = new UserDO();
+            UserEntity user = new UserEntity();
             user.setUserName("示例用户" + i);
             user.setAge(20 + i);
             user.setStatus(i % 2 == 0 ? OrderStatus.PAID : OrderStatus.CREATED);
@@ -40,7 +40,7 @@ public class SampleDataInitializer implements CommandLineRunner {
             extInfo.setRemark("第" + i + "个示例用户");
             user.setExtInfo(extInfo);
             user.setTags(Arrays.asList("tag-" + i, "demo"));
-            userDAO.saveDomain(user);
+            userDAO.saveEntity(user);
         }
         log.info("示例数据初始化完成");
     }

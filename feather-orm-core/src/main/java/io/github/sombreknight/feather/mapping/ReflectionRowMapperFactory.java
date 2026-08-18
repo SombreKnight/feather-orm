@@ -15,26 +15,26 @@ import java.sql.SQLException;
 public class ReflectionRowMapperFactory implements RowMapperFactory {
 
     @Override
-    public <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean vo) {
+    public <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean dto) {
         return (rs, rowNum) -> {
-            T domain;
+            T entity;
             try {
-                domain = clazz.getDeclaredConstructor().newInstance();
+                entity = clazz.getDeclaredConstructor().newInstance();
             } catch (Exception e) {
                 throw new SQLException("实例化实体[" + clazz.getName() + "]失败", e);
             }
             for (FieldHandler handler : handlers) {
                 try {
                     Object value = handler.fromResultSet(rs);
-                    ReflectUtils.setFieldValue(handler.getMeta().getField(), domain, value);
+                    ReflectUtils.setFieldValue(handler.getMeta().getField(), entity, value);
                 } catch (SQLException e) {
-                    if (!vo) {
+                    if (!dto) {
                         throw e;
                     }
-                    // VO 模式下列不存在则跳过
+                    // DTO 模式下列不存在则跳过
                 }
             }
-            return domain;
+            return entity;
         };
     }
 }

@@ -63,7 +63,7 @@ public class FeatherStarterTest {
 
     @Test
     public void crud() {
-        AccountDO account = new AccountDO();
+        AccountEntity account = new AccountEntity();
         account.setUserName("张三");
         account.setBalance(new BigDecimal("100.50"));
         account.setStatus(AccountStatus.NORMAL);
@@ -71,39 +71,39 @@ public class FeatherStarterTest {
         assertNotNull(jdbcDAO.save(account));
         assertNotNull(account.getId());
 
-        AccountDO found = accountDAO.findById(account.getId());
+        AccountEntity found = accountDAO.findById(account.getId());
         assertNotNull(found);
         assertEquals("张三", found.getUserName());
         assertEquals(0, new BigDecimal("100.50").compareTo(found.getBalance()));
         assertEquals(AccountStatus.NORMAL, found.getStatus());
 
         // 查询条件（枚举参数自动转换）
-        AccountDO byName = accountDAO.findOne(accountDAO.getQueryHelper().whereEqual("userName", "张三"));
+        AccountEntity byName = accountDAO.findOne(accountDAO.getQueryHelper().whereEqual("userName", "张三"));
         assertNotNull(byName);
         assertEquals(account.getId(), byName.getId());
 
         // 更新
-        AccountDO update = new AccountDO();
+        AccountEntity update = new AccountEntity();
         update.setId(account.getId());
         update.setBalance(new BigDecimal("200.00"));
-        assertNotNull(accountDAO.updateDomain(update));
+        assertNotNull(accountDAO.updateEntity(update));
 
-        AccountDO afterUpdate = accountDAO.findById(account.getId());
+        AccountEntity afterUpdate = accountDAO.findById(account.getId());
         assertEquals(0, new BigDecimal("200.00").compareTo(afterUpdate.getBalance()));
         assertEquals("张三", afterUpdate.getUserName()); // 未更新字段保持
 
         // 删除
-        accountDAO.deleteDomain(afterUpdate);
+        accountDAO.deleteEntity(afterUpdate);
         assertNull(accountDAO.findById(account.getId()));
     }
 
     @Test
     public void transactionRollback() {
         assertThrows(RuntimeException.class, () -> transactionTemplate.executeWithoutResult(status -> {
-            AccountDO account = new AccountDO();
+            AccountEntity account = new AccountEntity();
             account.setUserName("回滚用户");
             account.setStatus(AccountStatus.FROZEN);
-            accountDAO.saveDomain(account);
+            accountDAO.saveEntity(account);
             throw new RuntimeException("触发回滚");
         }));
 

@@ -1,4 +1,4 @@
-package io.github.sombreknight.feather.samples.domain;
+package io.github.sombreknight.feather.samples.entity;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.github.sombreknight.feather.type.CodeEnum;
