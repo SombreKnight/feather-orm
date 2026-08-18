@@ -1,0 +1,430 @@
+# Feather ORM 使用教程
+
+> 基于 Spring `JdbcTemplate` 的轻量级 ORM。注解 + 驼峰约定驱动，继承即得 CRUD。
+> 本文档是使用本框架编码的**完整行为契约**，包含全部 API、类型映射规则、路由/事务行为与踩坑点。
+
+---
+
+## 1. 快速开始
+
+### 1.1 引入依赖
+
+```xml
+<dependency>
+    <groupId>io.github.sombreknight</groupId>
+    <artifactId>feather-orm-spring-boot-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+### 1.2 配置数据源（一套配置接管，无需再配 `spring.datasource.*`）
+
+```yaml
+feather:
+  datasource:
+    primary:                    # 必填
+      url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
+      username: root
+      password: xxx
+    replicas:                   # 可选：不配即单节点（零路由开销）
+      - url: jdbc:mysql://slave1:3306/demo
+        username: root
+        password: xxx
+    hikari:                     # 可选：主从共用，不配即 Hikari 默认值
+      maximum-pool-size: 20
+      minimum-idle: 5
+  orm:
+    row-mapper: javassist       # javassist（默认，字节码生成）| reflection（纯反射兜底）
+    worker-id: 1                # 可选：雪花算法 workerId，多实例部署建议显式配置
+```
+
+**接管行为**：配置了 `feather.datasource.primary.url` 后，框架在 Spring Boot 默认数据源自动配置**之前**创建 `DataSource` / `NamedParameterJdbcTemplate` / 事务管理器，Boot 默认自动配置自动失效。未配置时优雅回退到 Boot 默认数据源。
+
+### 1.3 定义实体 + DAO + 使用
+
+```java
+@Table("tb_user")
+public class UserEntity extends BaseEntity {
+    private String userName;        // 约定映射 user_name
+    private Integer age;
+    private OrderStatus status;     // 枚举
+    private ExtInfo extInfo;        // 复杂对象 → JSON 列
+    private List<String> tags;      // 泛型集合 → JSON 列
+    // getter / setter
+}
+
+@Repository
+public class UserDAO extends BaseDAO<UserEntity> {
+}
+
+// 使用
+userDAO.saveEntity(user);
+UserEntity user = userDAO.findById(1L);
+List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", "张三"));
+```
+
+> **注意**：DAO 必须标注 `@Repository`（或 `@Component`），否则不会被 Spring 扫描为 Bean。
+
+---
+
+## 2. 实体定义规范
+
+### 2.1 基类 `BaseEntity`
+
+- 唯一强制字段：`private Long id`（主键），继承即有
+- 主键列名默认 `id`；如列名不同（如 `uid`），用 `@Table(idColumn = "uid")` 指定
+- **无** 其他默认字段（无 appId、无版本号、无创建/更新时间——全部按需自行声明）
+
+### 2.2 注解
+
+| 注解 | 位置 | 说明 |
+|---|---|---|
+| `@Table(value)` | 类 | 表名（必填） |
+| `@Table(idColumn)` | 类 | 主键列名，默认 `id`（可选） |
+| `@Column(value)` | 字段 | 显式列名；**空值 = 走驼峰约定**（可选） |
+| `@EnumValue(value)` | 字段 | 枚举存取方法名（逃生舱，见 3.3） |
+
+### 2.3 列名约定（核心规则）
+
+**驼峰转下划线**：Java 字段 `userName` → 列 `user_name`、`userId` → `user_id`、`userURL` → `user_url`。
+
+- 满足约定的字段**不需要任何注解**
+- 不满足约定 / 列名为保留字时，用 `@Column("phone_no")` 显式指定
+- `static` / `transient` 字段不参与映射
+
+### 2.4 完整示例（覆盖全部特性）
+
+```java
+@Table(value = "tb_user", idColumn = "id")
+public class UserEntity extends BaseEntity {
+
+    private String userName;            // → user_name（约定）
+    private Integer age;                // → age（约定）
+
+    @Column("phone_no")                 // 不规则列名显式指定
+    private String phone;
+
+    private OrderStatus status;         // 枚举（CodeEnum）→ 业务码
+    private TypeEnum type;              // 普通枚举 → name()
+    private ExtInfo extInfo;            // 复杂对象 → JSON 列
+    private List<String> tags;          // 泛型集合 → JSON 列
+    private Map<String, Object> attrs;  // Map → JSON 列
+    private FeatherDate createTime;     // 日期
+}
+```
+
+---
+
+## 3. 类型映射（TypeHandler 注册表）
+
+**解析顺序（约定优于配置）**：
+1. 用户注册的自定义 `TypeHandler`（Spring Bean 自动收集，优先级最高）
+2. 内置：简单类型 → 时间类型 → FeatherDate → 枚举
+3. 兜底：JSON 处理器（任何未匹配的类型自动 JSON 序列化）
+
+### 3.1 简单类型（原生存取）
+
+`String`、`Integer/int`、`Long/long`、`Short/short`、`Byte/byte`、`Double/double`、`Float/float`、`Boolean/boolean`、`Character/char`、`BigDecimal`、`byte[]`
+—— 自动处理 `NULL` 与 `wasNull`。
+
+### 3.2 时间类型（原生存取）
+
+`java.util.Date`、`java.sql.*`、`java.time.LocalDate/LocalDateTime/LocalTime/Instant/OffsetDateTime`、`FeatherDate`。
+
+**FeatherDate**（框架自带，用法顺手）：
+```java
+FeatherDate now = new FeatherDate();        // 当前时间
+FeatherDate fd = FeatherDate.of(1700000000000L);
+fd.getTime();            // epoch 毫秒
+fd.getTimeSecond();      // epoch 秒
+fd.isZeroTime();         // 是否零时间
+fd.datetimeString();     // "yyyy-MM-dd HH:mm:ss"（零时间 → "0000-00-00 00:00:00"）
+fd.toLocalDateTime();    // LocalDateTime
+FeatherDate.ZERO_INST;   // 零时间实例
+```
+零时间写库需要 MySQL 连接参数 `zeroDateTimeBehavior=convertToNull`。
+
+### 3.3 枚举三层约定
+
+| 层级 | 触发方式 | 存储形式 |
+|---|---|---|
+| 1（默认） | 普通枚举，零配置 | `name()` |
+| 2（推荐） | 实现 `CodeEnum<T>` 接口 | `getValue()` 业务码 |
+| 3（逃生舱） | 字段加 `@EnumValue("getCode")` | 指定方法返回值（用于无法改源码的第三方枚举） |
+
+```java
+public interface CodeEnum<T> { T getValue(); }
+
+public enum OrderStatus implements CodeEnum<Integer> {
+    CREATED(1), PAID(2), CANCELLED(9);
+    private final Integer value;
+    OrderStatus(Integer value) { this.value = value; }
+
+    @JsonValue   // 推荐：让 REST 请求/响应也统一用业务码（与 DB 一致）
+    @Override
+    public Integer getValue() { return value; }
+}
+```
+
+> **重要**：不带 `@JsonValue` 时，Jackson 会把请求里的数字按**枚举序数**解析（2 → 序数 2，不是业务码 2），会静默映射错。REST 层用业务码必须加 `@JsonValue`。
+
+### 3.4 JSON 映射（兜底，零注解）
+
+**任何未命中内置类型的字段自动 JSON 序列化**，按字段泛型类型还原，`List<X>`、`Map<K,V>`、嵌套泛型均无需额外注解：
+
+```java
+private ExtInfo extInfo;             // 对象 → JSON
+private List<String> tags;           // 泛型集合 → JSON
+private List<ExtInfo> infos;         // 嵌套泛型 → JSON
+```
+
+- **null 语义**：写库时跳过 null 列（insert 为 NULL / update 不触碰该列），**绝不写空串**
+- 反序列化失败抛 `FeatherDaoException`（fail-fast，不静默返回 null）
+
+### 3.5 自定义 TypeHandler（用户扩展）
+
+```java
+@Component
+public class MyHandler implements TypeHandler {
+    @Override public boolean supports(Class<?> javaType, FieldMeta meta) { ... }
+    @Override public Object toJdbcValue(Object value, FieldMeta meta) { ... }   // 写库
+    @Override public Object fromResultSet(ResultSet rs, String column, FieldMeta meta) { ... } // 读库
+}
+```
+注册为 Spring Bean 即自动获得最高优先级。
+
+---
+
+## 4. BaseDAO API 全清单
+
+`class XxxDAO extends BaseDAO<XxxEntity>` 后获得：
+
+### 新增
+| 方法 | 说明 |
+|---|---|
+| `boolean saveEntity(T entity)` | 新增；`id == null` 时雪花生成，也可自行指定 |
+| `boolean saveEntityList(List<T> entityList)` | 批量新增（按"非空列集合"分组批量执行） |
+| `boolean saveOrUpdate(T entity)` | 有 id 且存在 → 更新；否则新增（id 不存在时按指定 id 插入） |
+
+### 删除
+| 方法 | 说明 |
+|---|---|
+| `boolean deleteEntity(T entity)` | 按主键删除 |
+| `boolean deleteEntities(List<T> entities)` | 按主键批量删除（`IN`） |
+
+### 更新
+| 方法 | 说明 |
+|---|---|
+| `boolean updateEntity(T entity)` | **仅更新非 null 字段**；null 字段不触碰 |
+| `boolean updateEntityList(List<T> entityList)` | 批量更新（COALESCE 单 SQL，语义同单条） |
+
+> **update 语义契约**：`SET 列 = COALESCE(:列, 原列)`。null 字段不参与更新（避免误清数据）；想清空字段请用 `JdbcDAO` 原生 SQL 或 `SqlParam`。
+
+### 按主键查询
+| 方法 | 说明 |
+|---|---|
+| `T findById(Long id)` | 单查；id 非法/不存在返回 null；**走主库** |
+| `List<T> findByIds(List<Long> ids)` | 批量；>100 自动分批（每批 100） |
+| `Map<Long, T> findMapByIds(List<Long> ids)` | id → 实体 Map |
+
+### 条件查询（配 QueryHelper）
+| 方法 | 说明 |
+|---|---|
+| `QueryHelper<T> getQueryHelper()` | 构建查询辅助器 |
+| `T findOne(QueryHelper<T>)` | 单条；多条抛异常 |
+| `List<T> findList(QueryHelper<T>)` | 列表 |
+| `long count(QueryHelper<T>)` | 计数 |
+| `<F> F findField(Class<F>, QueryHelper<T>)` | 查询单字段（用 `selectFields` 指定） |
+| `<F> List<F> findFieldList(Class<F>, QueryHelper<T>)` | 单字段列表 |
+| `PagingResult<T> findPageByPageNum(QueryHelper<T>)` | 分页 |
+| `<V> PagingResult<V> findDtoPageByPageNum(Class<V>, QueryHelper<T>)` | 分页映射到 DTO |
+| `<F> PagingResult<F> findFieldPageByPageNum(Class<F>, QueryHelper<T>)` | 字段分页 |
+
+### 其他
+| 方法 | 说明 |
+|---|---|
+| `void forceMaster()` | 强制后续查询走主库（当前线程本次操作） |
+| `Class<T> getEntityClass()` | 实体类型 |
+
+---
+
+## 5. QueryHelper 查询辅助器
+
+以面向对象方式拼装 SQL，**字段名一律用 Java 字段名**，自动映射列名。
+
+### 5.1 条件
+
+```java
+qh.whereEqual("userName", "张三")        // =
+qh.whereIn("id", ids)                    // IN（单元素自动降级为 =）
+qh.whereNotIn("id", ids)                 // NOT IN
+qh.whereGt("age", 18)                    // >
+qh.whereGte("age", 18)                   // >=
+qh.whereLt("age", 60)                    // <
+qh.whereLte("age", 60)                   // <=
+qh.whereLike("userName", "张%")          // LIKE（通配符自行传入）
+```
+- 枚举参数自动转换（`CodeEnum` → 业务码，普通枚举 → name）
+- 同一字段多个条件自动生成唯一占位符（`:age_1`、`:age_2`），无冲突
+
+### 5.2 列选择 / 排序 / 分组 / 分页
+
+```java
+qh.selectFields("userName", "age")               // 指定查询列
+qh.selectFields("userName as u")                 // 支持别名
+qh.countField() / qh.countField("id")            // count(*)/count(id)
+qh.groupBy("age")
+qh.orderByAsc("age") / qh.orderByDesc("id")
+qh.limit(10) / qh.limitOne()                     // 普通查询限条数
+qh.limit(page, pageSize)                         // 分页（配合 findPageByPageNum）
+qh.withTotal(true/false)                         // 分页是否统计总数
+qh.forceIndex("idx_name")                        // 强制索引（MySQL）
+qh.forUpdate()                                   // 悲观锁
+```
+
+### 5.3 安全契约（fail-fast）
+
+- **未知字段名立即抛异常**（不会拼进 SQL，杜绝注入）
+- 传 null 参数 → 执行前抛 `FeatherDaoException`
+- `findList` 不带 where 条件 → 抛异常
+
+---
+
+## 6. JdbcDAO 低层 API（原生 SQL 场景）
+
+`@Autowired JdbcDAO` 可直接使用（或注入 `NamedParameterJdbcTemplate` 用原生 JDBC）：
+
+```java
+// 自定义 SQL 查询实体（whereSql 以 " where " 开头，用命名参数）
+T findOne(Class<T> clazz, String whereSql, SqlParam param)
+List<T> findList(Class<T> clazz, String whereSql, SqlParam param)
+long count(Class<T> clazz, String whereSql, SqlParam param)
+PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param, int page, int size, boolean withTotal)
+
+// DTO 投影查询（任意 POJO；查询结果列缺失自动跳过）
+<T> T findDto(Class<T> dtoClass, String sql, SqlParam param)
+<T> List<T> findDtoList(Class<T> dtoClass, String sql, SqlParam param)
+<T> PagingResult<T> findDtoPageByPageNum(Class<T> dtoClass, String sql, SqlParam param, int page, int size, boolean withTotal)
+
+// 单字段查询
+<T> T findField(Class<T> clazz, String sql, SqlParam param)
+<T> List<T> findFieldList(Class<T> clazz, String sql, SqlParam param)
+<T> PagingResult<T> findFieldPageByPageNum(Class<T> clazz, String sql, SqlParam param, int page, int size, boolean withTotal)
+
+// 写操作
+int save(T entity)                    // 返回影响行数
+int[] saveBatch(List<T> entities)
+int update(T entity)
+int[] updateBatch(List<T> entities)
+int deleteEntity(Class<T> clazz, T entity)
+int deleteEntities(Class<T> clazz, List<T> entities)
+```
+
+**SqlParam 用法**：
+```java
+SqlParam.create("id", 1L).add("name", "张三").toMap()
+// FeatherDate 参数自动转换；传 null 参数会触发 fail-fast
+```
+
+---
+
+## 7. 主从分离与强制主库
+
+### 7.1 路由规则（配置了 `replicas` 时生效）
+
+| 操作 | 数据源 |
+|---|---|
+| 写操作（save/update/delete/批量） | **主库** |
+| `findById` / `findByIds` | **主库**（保证读己之写） |
+| 普通查询（findList/findOne/count/分页/DTO） | **从库**（随机选一个） |
+| `forceMaster()` 之后的查询 | **主库** |
+| 事务内所有操作 | **主库连接**（复用事务连接） |
+
+### 7.2 forceMaster
+
+```java
+userDAO.forceMaster();          // 或注入 JdbcDAO 后 jdbcDAO.forceMaster()
+List<UserEntity> list = userDAO.findList(...);   // 本次查询走主库
+```
+仅对当前线程的本次操作生效，操作完成后自动清理。
+
+### 7.3 事务行为（重要）
+
+- 事务开始自动取**主库**连接（未指定 Key 默认主库）
+- 事务内读写**复用同一主库连接** → 读己之写天然成立，不会路由到从库
+- `@Transactional` 与编程式 `TransactionTemplate` 均可用
+
+### 7.4 单节点模式
+
+不配置 `replicas` 即单节点：**全部走主库，零路由开销**（不设置路由 Key）。
+
+---
+
+## 8. 事务
+
+```java
+// 声明式
+@Transactional
+public void doSomething() {
+    userDAO.saveEntity(user);
+    userDAO.updateEntity(user2);
+}
+
+// 编程式（注入 TransactionTemplate）
+transactionTemplate.executeWithoutResult(status -> {
+    userDAO.saveEntity(user);
+    throw new RuntimeException("触发回滚");
+});
+```
+
+---
+
+## 9. ID 生成
+
+- **默认**：`SnowflakeIdGenerator`（雪花算法），`id == null` 时自动生成
+- **多实例部署**：建议配置 `feather.orm.worker-id` 避免 id 冲突
+- **自定义**：注册 `IdGenerator` Bean 即覆盖（`@ConditionalOnMissingBean`）
+- **手动指定**：`saveEntity` 前自行 `setId(...)` 即可，框架不覆盖
+
+---
+
+## 10. RowMapper 实现
+
+- 默认 **Javassist**：运行时生成字节码，零反射、零查表；已适配 JDK 8/17/21（无需 `--add-opens`）
+- 切换纯反射：`feather.orm.row-mapper: reflection`（安全策略/禁用字节码生成的环境兜底）
+- 生成的类按实体静态缓存，多个 JdbcDAO 实例共享，不会重复定义
+
+---
+
+## 11. 兼容性与限制
+
+- **Java 8+**（JDK 8/17/21 已验证），**Spring Boot 2.x**（2.0~2.7，目标兼容 3.x）
+- **MySQL**：反引号列名、`LIMIT offset, size`、`force index` 方言；H2（MySQL 模式）可用于测试
+- 单库单表，无分库分表、无实体缓存（v1 定位）
+- 一套框架一套配置：引入后持久层即 Feather，不与 MyBatis/JPA 混用
+
+---
+
+## 12. 常见踩坑清单
+
+| 场景 | 正确做法 |
+|---|---|
+| REST 请求枚举数字 | `CodeEnum.getValue()` 加 `@JsonValue`，否则 Jackson 按序数解析 |
+| 更新时想清空某列 | update 只更新非 null 字段；清空用原生 SQL |
+| 零时间 | MySQL 连接加 `zeroDateTimeBehavior=convertToNull` |
+| 批量更新 | `updateEntityList` 用 COALESCE 语义，null 字段不触碰 |
+| 查询列不存在 | DTO 映射自动跳过；实体映射（DO）缺列会抛异常 |
+| DAO 不生效 | 记得加 `@Repository` |
+| 查询条件拼错字段 | 抛异常（fail-fast），不会静默查错 |
+
+---
+
+## 13. 与 Agent 协作约定
+
+1. 实体类名 `XxxEntity extends BaseEntity`；DAO `XxxDAO extends BaseDAO<XxxEntity>` 并标 `@Repository`
+2. 字段映射优先**约定**（驼峰→下划线），不规则才用 `@Column`
+3. 条件查询一律用 `QueryHelper`（杜绝 SQL 拼接注入）
+4. 复杂对象/集合字段零注解自动 JSON；枚举存业务码用 `CodeEnum`
+5. 新增/更新语义：null 字段不落库、不更新；批量用 `*List` 方法
+6. 主从场景：读多写少默认即可；一致性敏感操作用 `forceMaster()` 或事务
+7. 遇到列名/字段名映射异常、JSON 反序列化失败均为 fail-fast，向上抛出定位

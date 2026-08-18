@@ -7,6 +7,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Javassist 字节码 RowMapper 工厂（默认）
@@ -15,15 +17,34 @@ import java.util.Map;
  * 预解析好的 {@link FieldHandler}，避免逐行反射，同时彻底摆脱对包名的硬编码依赖
  * （生成代码中的类名全部通过 <code>Class.getName()</code> 在生成期拼接）。</p>
  *
+ * <p>生成的类按类名静态缓存：多个 JdbcDAO / RowMapperSupport 实例映射同一实体时复用，
+ * 避免重复定义同名字节码类导致 {@link LinkageError}。DO 与 DTO 模式使用不同类名后缀，互不干扰。</p>
+ *
  * @author sombreknight
  */
 public class JavassistRowMapperFactory implements RowMapperFactory {
 
+    /** 已生成的 RowMapper 类缓存（跨 RowMapperSupport 实例共享） */
+    private static final ConcurrentMap<String, Class<?>> GENERATED_CLASSES = new ConcurrentHashMap<>();
+
     @Override
     public <T> RowMapper<T> createRowMapper(Class<T> clazz, FieldHandler[] handlers, boolean dto) {
         try {
-            String className = clazz.getName() + "FeatherRowMapper";
+            String className = dto
+                    ? clazz.getName() + "FeatherDtoRowMapper"
+                    : clazz.getName() + "FeatherRowMapper";
+            Class<?> generatedClass = GENERATED_CLASSES.computeIfAbsent(className,
+                    k -> generateRowMapperClass(clazz, className, dto, handlers));
+            Object instance = generatedClass.getConstructor(FieldHandler[].class).newInstance((Object) handlers);
+            return (RowMapper<T>) instance;
+        } catch (Exception e) {
+            throw new FeatherDaoException("为实体[" + clazz.getName() + "]生成 RowMapper 失败", e);
+        }
+    }
 
+    private static Class<?> generateRowMapperClass(Class<?> clazz, String className, boolean dto,
+                                                   FieldHandler[] sampleHandlers) {
+        try {
             javassist.ClassPool pool = new javassist.ClassPool();
             pool.appendSystemPath();
             pool.insertClassPath(new javassist.LoaderClassPath(clazz.getClassLoader()));
@@ -36,7 +57,7 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
             ctClass.addConstructor(javassist.CtNewConstructor.make(
                     "public " + simpleName(className) + "(" + FieldHandler.class.getName() + "[] handlers) { this.handlers = handlers; }",
                     ctClass));
-            ctClass.addMethod(javassist.CtNewMethod.make(buildMapRowBody(clazz, handlers, dto), ctClass));
+            ctClass.addMethod(javassist.CtNewMethod.make(buildMapRowBody(clazz, sampleHandlers, dto), ctClass));
 
             // 显式声明 Java 8 字节码版本，保证在低版本 JVM 上可用
             try {
@@ -45,11 +66,9 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
                 // 忽略版本设置失败，使用 javassist 默认版本
             }
 
-            Class<?> generatedClass = defineGeneratedClass(clazz, ctClass);
-            Object instance = generatedClass.getConstructor(FieldHandler[].class).newInstance((Object) handlers);
-            return (RowMapper<T>) instance;
+            return defineGeneratedClass(clazz, ctClass);
         } catch (Exception e) {
-            throw new FeatherDaoException("为实体[" + clazz.getName() + "]生成 RowMapper 失败", e);
+            throw new FeatherDaoException("为实体[" + clazz.getName() + "]生成 RowMapper 类失败", e);
         }
     }
 
@@ -92,7 +111,7 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
     /**
      * 生成 mapRow 方法体
      */
-    private String buildMapRowBody(Class<?> clazz, FieldHandler[] handlers, boolean dto) {
+    private static String buildMapRowBody(Class<?> clazz, FieldHandler[] handlers, boolean dto) {
         StringBuilder sb = new StringBuilder();
         sb.append("public Object mapRow(java.sql.ResultSet rs, int index) throws java.sql.SQLException {\n");
         sb.append("    ").append(clazz.getName()).append(" entity = new ").append(clazz.getName()).append("();\n");

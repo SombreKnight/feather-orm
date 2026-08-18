@@ -2,6 +2,8 @@
 
 基于 Spring `JdbcTemplate` 的轻量级 ORM 框架：注解 + 驼峰约定驱动，继承即得 CRUD，零 XML、零配置魔法。
 
+> 📖 **完整使用教程见 [usage.md](usage.md)**（全部 API、类型映射规则、路由/事务行为契约、踩坑清单）
+
 > 设计目标：让"写 DAO"这件事回归简单——不需要 MyBatis 的 mapper 文件，不需要 JPA 的实体关系负担，
 > 一行 `@Table` + 继承 `BaseDAO`，剩下的交给约定。
 

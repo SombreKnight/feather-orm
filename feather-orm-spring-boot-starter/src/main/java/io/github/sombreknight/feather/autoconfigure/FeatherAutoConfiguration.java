@@ -5,7 +5,7 @@ import io.github.sombreknight.feather.core.IdGenerator;
 import io.github.sombreknight.feather.core.JdbcDAO;
 import io.github.sombreknight.feather.core.SnowflakeIdGenerator;
 import io.github.sombreknight.feather.datasource.DataSourceKey;
-import io.github.sombreknight.feather.datasource.DynamicDataSource;
+import io.github.sombreknight.feather.datasource.RoutingDataSource;
 import io.github.sombreknight.feather.mapping.JavassistRowMapperFactory;
 import io.github.sombreknight.feather.mapping.ReflectionRowMapperFactory;
 import io.github.sombreknight.feather.mapping.RowMapperFactory;
@@ -64,16 +64,14 @@ public class FeatherAutoConfiguration {
         if (replicas == null || replicas.isEmpty()) {
             return primary; // 单节点，零路由开销
         }
-        DynamicDataSource routing = new DynamicDataSource();
-        Map<Object, Object> targetDataSources = new HashMap<>();
+        Map<Object, DataSource> targetDataSources = new HashMap<>();
         targetDataSources.put(DataSourceKey.MASTER, primary);
         for (int i = 0; i < replicas.size(); i++) {
             HikariDataSource replica = buildHikariDataSource(properties, replicas.get(i), "replica-" + (i + 1));
             targetDataSources.put(DataSourceKey.SLAVE_PREFIX + (i + 1), replica);
         }
-        routing.setTargetDataSources(targetDataSources);
-        routing.afterPropertiesSet();
-        return routing;
+        // 未显式指定数据源 Key（如事务开始、健康检查等场景）默认走主库
+        return new RoutingDataSource(targetDataSources, primary);
     }
 
     private HikariDataSource buildHikariDataSource(FeatherProperties properties,

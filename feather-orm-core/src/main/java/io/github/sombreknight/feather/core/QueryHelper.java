@@ -34,8 +34,8 @@ public class QueryHelper<T extends BaseEntity> {
     private static final String KEY_WORD_ORDER_BY = " order by ";
     private static final String KEY_WORD_GROUP_BY = " group by ";
     private static final String KEY_WORD_LIMIT = " limit ";
-    private static final String KEY_WORD_ASC = " asc ";
-    private static final String KEY_WORD_DESC = " desc ";
+    private static final String KEY_WORD_ASC = " asc";
+    private static final String KEY_WORD_DESC = " desc";
     private static final String KEY_WORD_IN = " in ";
     private static final String KEY_WORD_NOT_IN = " not in ";
     private static final String KEY_WORD_GTE = " >= ";

@@ -240,6 +240,47 @@ public class FeatherOrmCrudTest {
     }
 
     @Test
+    public void t11_saveOrUpdate() {
+        // 无 id → 新增
+        UserEntity fresh = newUser("新增用户", 18, OrderStatus.CREATED, TypeEnum.TEST1);
+        fresh.setId(null);
+        assertTrue(userDAO.saveOrUpdate(fresh));
+        assertNotNull(fresh.getId());
+
+        // 有 id 且存在 → 更新
+        UserEntity update = new UserEntity();
+        update.setId(fresh.getId());
+        update.setUserName("更新后");
+        assertTrue(userDAO.saveOrUpdate(update));
+        assertEquals("更新后", userDAO.findById(fresh.getId()).getUserName());
+
+        // 有 id 但不存在 → 新增（保留指定 id）
+        UserEntity ghost = new UserEntity();
+        ghost.setId(88888L);
+        ghost.setUserName("幽灵");
+        assertTrue(userDAO.saveOrUpdate(ghost));
+        assertNotNull(userDAO.findById(88888L));
+    }
+
+    @Test
+    public void t12_deleteEntitiesAndEmptyMap() {
+        List<UserEntity> users = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            users.add(newUser("批量删" + i, 20 + i, OrderStatus.CREATED, TypeEnum.TEST1));
+        }
+        userDAO.saveEntityList(users);
+
+        assertTrue(userDAO.deleteEntities(users));
+        for (UserEntity user : users) {
+            assertNull(userDAO.findById(user.getId()));
+        }
+
+        // 空 id 列表 → 空 map，不报错
+        assertTrue(userDAO.findMapByIds(new ArrayList<>()).isEmpty());
+        assertTrue(userDAO.findByIds(new ArrayList<>()).isEmpty());
+    }
+
+    @Test
     public void t10_updateBatch() {
         UserEntity u1 = newUser("批量改1", 30, OrderStatus.PAID, TypeEnum.TEST1);
         UserEntity u2 = newUser("批量改2", 40, OrderStatus.CREATED, TypeEnum.TEST2);
