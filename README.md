@@ -161,7 +161,7 @@ mvn -pl feather-orm-samples spring-boot:run
 cd feather-orm-samples && mvn spring-boot:run
 ```
 
-启动后访问 `http://localhost:8080/users` 体验 CRUD。
+启动后访问 `http://localhost:9090/users` 体验 CRUD。
 
 ## 兼容性
 
