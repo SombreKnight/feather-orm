@@ -165,7 +165,8 @@ cd feather-orm-samples && mvn spring-boot:run
 
 ## 兼容性
 
-- Java 8+，Spring Boot 2.x（2.0 ~ 2.7），目标后续兼容 Spring Boot 3.x
+- Java 8+（JDK 8 / 17 / 21 已验证），Spring Boot 2.x（2.0 ~ 2.7），目标后续兼容 Spring Boot 3.x
+- Javassist 字节码生成已适配模块系统：JDK 9+ 走 `MethodHandles.defineClass`，无需 `--add-opens` 参数
 - 当前面向 MySQL（反引号列名、`LIMIT offset, size` 分页方言）
 
 ## 设计取舍（当前版本）
