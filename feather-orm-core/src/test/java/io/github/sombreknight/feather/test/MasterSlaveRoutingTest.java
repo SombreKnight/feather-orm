@@ -143,7 +143,8 @@ public class MasterSlaveRoutingTest {
     @Test
     public void readGoesToSlave() {
         long id = save("读从库", 3);
-        replicate(rawSlave1, id, "读从库", 3); // 模拟主从复制
+        replicate(rawSlave1, id, "读从库", 3); // 模拟主从复制（两个从库都复制，避免随机路由选到空库）
+        replicate(rawSlave2, id, "读从库", 3);
 
         master.reset();
         slave1.reset();
