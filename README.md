@@ -1,5 +1,9 @@
 # Feather ORM
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.sombreknight/feather-orm-spring-boot-starter)](https://search.maven.org/artifact/io.github.sombreknight/feather-orm-spring-boot-starter)
+[![CI](https://github.com/SombreKnight/feather-orm/actions/workflows/ci.yml/badge.svg)](https://github.com/SombreKnight/feather-orm/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 基于 Spring `JdbcTemplate` 的轻量级 ORM 框架：注解 + 驼峰约定驱动，继承即得 CRUD，零 XML、零配置魔法。
 
 > 📖 **完整使用教程见 [usage.md](usage.md)**（全部 API、类型映射规则、路由/事务行为契约、踩坑清单）
@@ -145,6 +149,14 @@ public class MyHandler implements TypeHandler {
     // supports / toJdbcValue / fromResultSet
 }
 ```
+
+## 版本发布
+
+已发布到 Maven Central（`io.github.sombreknight`），发版流程：
+
+1. 更新 pom 版本号（如 `0.1.1`）并提交
+2. 打 tag 并推送：`git tag v0.1.1 && git push origin v0.1.1`
+3. GitHub Actions 自动构建、测试、签名并发布（需先在仓库配置 Secrets，见 [release.yml](.github/workflows/release.yml)）
 
 ## 模块结构
 
