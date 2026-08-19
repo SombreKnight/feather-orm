@@ -2,6 +2,8 @@ package io.github.sombreknight.feather.mapping;
 
 import io.github.sombreknight.feather.annotation.Column;
 import io.github.sombreknight.feather.annotation.EnumValue;
+import io.github.sombreknight.feather.dialect.DialectRegistry;
+import io.github.sombreknight.feather.dialect.SqlDialect;
 import io.github.sombreknight.feather.util.NamingUtils;
 
 import java.lang.reflect.Field;
@@ -23,11 +25,18 @@ public class FieldMeta {
     private final EnumValue enumValueAnnotation;
 
     public FieldMeta(Field field, String column) {
+        this(field, column, DialectRegistry.defaultDialect());
+    }
+
+    /**
+     * @param dialect 当前数据库方言（决定列名引用形式）
+     */
+    public FieldMeta(Field field, String column, SqlDialect dialect) {
         this.field = field;
         this.javaType = field.getType();
         this.genericType = field.getGenericType();
         this.column = column;
-        this.quotedColumn = quote(column);
+        this.quotedColumn = dialect.quoteIdentifier(column);
         this.columnAnnotation = field.getAnnotation(Column.class);
         this.enumValueAnnotation = field.getAnnotation(EnumValue.class);
     }
@@ -37,21 +46,18 @@ public class FieldMeta {
      * 有 {@link Column} 注解用注解值，否则走驼峰转下划线约定
      */
     public static FieldMeta of(Field field) {
+        return of(field, DialectRegistry.defaultDialect());
+    }
+
+    /**
+     * @param dialect 当前数据库方言（决定列名引用形式）
+     */
+    public static FieldMeta of(Field field, SqlDialect dialect) {
         Column column = field.getAnnotation(Column.class);
         String columnName = (column != null && !column.value().trim().isEmpty())
                 ? column.value().trim()
                 : NamingUtils.camelToSnake(field.getName());
-        return new FieldMeta(field, columnName);
-    }
-
-    private static String quote(String name) {
-        if (name == null || name.isEmpty()) {
-            return name;
-        }
-        if (name.startsWith("`") && name.endsWith("`")) {
-            return name;
-        }
-        return "`" + name + "`";
+        return new FieldMeta(field, columnName, dialect);
     }
 
     public Field getField() {

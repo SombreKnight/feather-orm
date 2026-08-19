@@ -2,6 +2,7 @@ package io.github.sombreknight.feather.mapping;
 
 import io.github.sombreknight.feather.annotation.Table;
 import io.github.sombreknight.feather.core.BaseEntity;
+import io.github.sombreknight.feather.dialect.SqlDialect;
 import io.github.sombreknight.feather.exception.FeatherDaoException;
 import io.github.sombreknight.feather.util.ReflectUtils;
 
@@ -24,6 +25,7 @@ public class ColumnMapper<T extends BaseEntity> {
     private static final String PK_FIELD_NAME = "id";
 
     private final Class<T> clazz;
+    private final SqlDialect dialect;
     private final String tableName;
     private final String quotedTableName;
     private final String idColumn;
@@ -34,8 +36,9 @@ public class ColumnMapper<T extends BaseEntity> {
     private final String countSql;
     private final String deleteSql;
 
-    ColumnMapper(Class<T> clazz) {
+    ColumnMapper(Class<T> clazz, SqlDialect dialect) {
         this.clazz = clazz;
+        this.dialect = dialect;
         Table table = clazz.getAnnotation(Table.class);
         if (table == null) {
             throw new FeatherDaoException("实体[" + clazz.getName() + "]缺少 @Table 注解");
@@ -50,10 +53,10 @@ public class ColumnMapper<T extends BaseEntity> {
             if (!ReflectUtils.isMappable(field) || Modifier.isVolatile(field.getModifiers())) {
                 continue;
             }
-            FieldMeta meta = FieldMeta.of(field);
+            FieldMeta meta = FieldMeta.of(field, dialect);
             if (PK_FIELD_NAME.equals(field.getName()) && !tableIdColumn.isEmpty()) {
                 // 主键列名由 @Table.idColumn 指定
-                meta = new FieldMeta(field, tableIdColumn);
+                meta = new FieldMeta(field, tableIdColumn, dialect);
             }
             metas.add(meta);
         }
@@ -80,14 +83,8 @@ public class ColumnMapper<T extends BaseEntity> {
         this.deleteSql = " delete from " + quotedTableName + " ";
     }
 
-    private static String quote(String name) {
-        if (name == null || name.isEmpty()) {
-            return name;
-        }
-        if (name.startsWith("`") && name.endsWith("`")) {
-            return name;
-        }
-        return "`" + name + "`";
+    private String quote(String name) {
+        return dialect.quoteIdentifier(name);
     }
 
     public Class<T> getClazz() {

@@ -2,6 +2,8 @@ package io.github.sombreknight.feather.core;
 
 import io.github.sombreknight.feather.datasource.DataSourceHolder;
 import io.github.sombreknight.feather.datasource.DataSourceKey;
+import io.github.sombreknight.feather.dialect.DialectRegistry;
+import io.github.sombreknight.feather.dialect.SqlDialect;
 import io.github.sombreknight.feather.exception.FeatherDaoException;
 import io.github.sombreknight.feather.mapping.ColumnMapper;
 import io.github.sombreknight.feather.mapping.FieldHandler;
@@ -45,17 +47,30 @@ public class JdbcDAO {
     private final IdGenerator idGenerator;
     private final RowMapperSupport rowMapperSupport;
     private final int slaveCount;
+    private final SqlDialect dialect;
 
     private final ThreadLocal<Boolean> forceMaster = new ThreadLocal<>();
 
+    /**
+     * @deprecated 建议显式指定方言（默认使用最小引用的 DefaultDialect，见 {@link DialectRegistry#defaultDialect()}）
+     */
     public JdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
                    IdGenerator idGenerator,
                    RowMapperSupport rowMapperSupport,
                    int slaveCount) {
+        this(namedParameterJdbcTemplate, idGenerator, rowMapperSupport, slaveCount, DialectRegistry.defaultDialect());
+    }
+
+    public JdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+                   IdGenerator idGenerator,
+                   RowMapperSupport rowMapperSupport,
+                   int slaveCount,
+                   SqlDialect dialect) {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
         this.idGenerator = idGenerator;
         this.rowMapperSupport = rowMapperSupport;
         this.slaveCount = slaveCount;
+        this.dialect = dialect == null ? DialectRegistry.defaultDialect() : dialect;
     }
 
     // ==================== 数据源路由 ====================
@@ -420,7 +435,7 @@ public class JdbcDAO {
             }
         }
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
-        String sql = mapper.getFromSql() + whereSql + " limit " + skip + ", " + size;
+        String sql = mapper.getFromSql() + whereSql + orderByForPaging(whereSql) + dialect.limitClause(skip, size);
         setDataSourceKey(false);
         try {
             List<T> list = namedParameterJdbcTemplate.query(sql, paramToMap(param),
@@ -472,12 +487,12 @@ public class JdbcDAO {
         int skip = (page - 1) * size;
         long total = 0;
         if (withTotal) {
-            total = findFieldWithoutException(Long.class, " select count(*) from (" + sql + ") a ", param);
+            total = findFieldWithoutException(Long.class, dialect.wrapCount(sql), param);
             if (total == 0) {
                 return new PagingResult<>(new PageInfo(total, page, size), Collections.emptyList());
             }
         }
-        String pageSql = sql + " limit " + skip + ", " + size;
+        String pageSql = sql + orderByForPaging(sql) + dialect.limitClause(skip, size);
         setDataSourceKey(false);
         try {
             List<T> list = namedParameterJdbcTemplate.query(pageSql, paramToMap(param),
@@ -524,12 +539,12 @@ public class JdbcDAO {
         int skip = (page - 1) * size;
         long total = 0;
         if (withTotal) {
-            total = findFieldWithoutException(Long.class, " select count(*) from (" + sql + ") a ", param);
+            total = findFieldWithoutException(Long.class, dialect.wrapCount(sql), param);
             if (total == 0) {
                 return new PagingResult<>(new PageInfo(total, page, size), Collections.emptyList());
             }
         }
-        String pageSql = sql + " limit " + skip + ", " + size;
+        String pageSql = sql + orderByForPaging(sql) + dialect.limitClause(skip, size);
         setDataSourceKey(false);
         try {
             List<T> list = namedParameterJdbcTemplate.query(pageSql, paramToMap(param), new FieldRowMapper<>(clazz));
@@ -544,6 +559,21 @@ public class JdbcDAO {
     private long findFieldWithoutException(Class<Long> clazz, String sql, SqlParam param) {
         Long value = findField(clazz, sql, param);
         return value == null ? 0L : value;
+    }
+
+    /**
+     * OFFSET/FETCH 类方言（SQL Server / Oracle）分页要求必须有 ORDER BY；
+     * 无排序时自动补 {@code order by (select 0)} 满足语法，不影响结果集内容。
+     */
+    private String orderByForPaging(String sql) {
+        if (dialect.requiresOrderByForPaging() && !containsOrderBy(sql)) {
+            return " order by (select 0) ";
+        }
+        return "";
+    }
+
+    private static boolean containsOrderBy(String sql) {
+        return sql != null && sql.toLowerCase().contains("order by");
     }
 
     // ==================== 内部方法 ====================

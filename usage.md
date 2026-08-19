@@ -278,8 +278,8 @@ qh.orderByAsc("age") / qh.orderByDesc("id")
 qh.limit(10) / qh.limitOne()                     // 普通查询限条数
 qh.limit(page, pageSize)                         // 分页（配合 findPageByPageNum）
 qh.withTotal(true/false)                         // 分页是否统计总数
-qh.forceIndex("idx_name")                        // 强制索引（MySQL）
-qh.forUpdate()                                   // 悲观锁
+qh.forceIndex("idx_name")                        // 强制索引（仅 MySQL 系）
+qh.forUpdate()                                   // 悲观锁（SQLite 忽略；SQL Server 抛异常）
 ```
 
 ### 5.3 安全契约（fail-fast）
@@ -399,7 +399,34 @@ transactionTemplate.executeWithoutResult(status -> {
 ## 11. 兼容性与限制
 
 - **Java 8+**（JDK 8/17/21 已验证），**Spring Boot 2.x**（2.0~2.7，目标兼容 3.x）
-- **MySQL**：反引号列名、`LIMIT offset, size`、`force index` 方言；H2（MySQL 模式）可用于测试
+- **SQL 方言可配置**（`feather.orm.dialect`），默认 `auto` 从 JDBC 元数据自动探测：
+
+```yaml
+feather:
+  orm:
+    dialect: auto   # auto(默认) | mysql | postgresql | sqlserver | oracle | sqlite | h2 | dm | default
+```
+
+| 方言 | 覆盖数据库 | 标识符引用 | 分页 |
+|---|---|---|---|
+| `mysql` | MySQL、MariaDB、TiDB、OceanBase、PolarDB(MySQL 模式) | 反引号 | `LIMIT size OFFSET skip` |
+| `postgresql` | PostgreSQL、openGauss、KingbaseES(人大金仓)、CockroachDB | 双引号 | `LIMIT size OFFSET skip` |
+| `sqlserver` | SQL Server 2012+、Azure SQL | 方括号 | `OFFSET skip ROWS FETCH NEXT size ROWS ONLY`（自动补 ORDER BY） |
+| `oracle` | Oracle 12c+ | 双引号 | `OFFSET skip ROWS FETCH NEXT size ROWS ONLY`（自动补 ORDER BY） |
+| `sqlite` | SQLite | 双引号 | `LIMIT size OFFSET skip` |
+| `h2` | H2、HSQLDB | 双引号 | `LIMIT size OFFSET skip` |
+| `dm` | 达梦 DM | 双引号 | `LIMIT size OFFSET skip` |
+| `default` | 未知数据库（兜底） | 最小引用 | `LIMIT size OFFSET skip` |
+
+**标识符引用策略（最小引用）**：合法的普通列名/表名（字母数字下划线、非保留字）**不引用**，
+跨库生成完全一致的 SQL；保留字（如 `order`、`user`）或含特殊字符的名称才按方言引用；
+`@Column("`col`")` 等显式带引号的值原样透传。
+
+**方言感知的差异行为**：
+- `forceIndex()` 仅 MySQL 系支持，其他方言调用直接抛异常（fail-fast）
+- `forUpdate()`：SQLite 单写者自动忽略；SQL Server 不支持 FOR UPDATE 语法，调用抛异常
+- 分页 count 自动剥离 `order by` / `for update`，避免 SQL Server 对无 TOP/LIMIT 的子查询排序报错
+- 零时间（`0000-00-00`）语义仅 MySQL 支持，非 MySQL 库请勿依赖
 - 单库单表，无分库分表、无实体缓存（v1 定位）
 - 一套框架一套配置：引入后持久层即 Feather，不与 MyBatis/JPA 混用
 

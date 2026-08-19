@@ -23,6 +23,7 @@ import java.util.List;
  *       maximum-pool-size: 20
  *   orm:
  *     row-mapper: javassist   # javassist | reflection
+ *     dialect: auto           # auto(默认，自动探测) | mysql | postgresql | sqlserver | oracle | sqlite | h2 | dm | default
  *     worker-id: 1            # 可选，雪花算法 workerId
  * </pre>
  *
@@ -216,6 +217,11 @@ public class FeatherProperties {
          */
         private Long workerId;
 
+        /**
+         * SQL 方言：auto（默认，自动探测）| mysql | postgresql | sqlserver | oracle | sqlite | h2 | dm | default
+         */
+        private String dialect = "auto";
+
         public String getRowMapper() {
             return rowMapper;
         }
@@ -230,6 +236,14 @@ public class FeatherProperties {
 
         public void setWorkerId(Long workerId) {
             this.workerId = workerId;
+        }
+
+        public String getDialect() {
+            return dialect;
+        }
+
+        public void setDialect(String dialect) {
+            this.dialect = dialect;
         }
     }
 }

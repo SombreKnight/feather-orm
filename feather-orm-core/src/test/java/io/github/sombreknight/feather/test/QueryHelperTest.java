@@ -1,6 +1,11 @@
 package io.github.sombreknight.feather.test;
 
 import io.github.sombreknight.feather.core.QueryHelper;
+import io.github.sombreknight.feather.dialect.DialectRegistry;
+import io.github.sombreknight.feather.dialect.MySqlDialect;
+import io.github.sombreknight.feather.mapping.Mapper;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -13,15 +18,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * QueryHelper SQL 生成单元测试（无需数据库）
  *
+ * <p>本类验证 MySQL 方言下的 SQL 片段生成（反引号、force index、limit 等）；
+ * 其他方言的行为见 dialect 包下的专项测试。</p>
+ *
  * @author sombreknight
  */
 public class QueryHelperTest {
+
+    @BeforeAll
+    public static void setup() {
+        Mapper.getInstance().setDialect(new MySqlDialect());
+    }
+
+    @AfterAll
+    public static void tearDown() {
+        Mapper.getInstance().setDialect(DialectRegistry.defaultDialect());
+    }
 
     @Test
     public void defaultSql() {
         QueryHelper<UserEntity> qh = new QueryHelper<>(UserEntity.class);
         String sql = qh.getSql();
-        assertTrue(sql.contains("select * from `tb_user` jdbc_x"));
+        // 最小引用策略：普通标识符不引用（跨库一致），保留字/特殊字符才按方言引用
+        assertTrue(sql.contains("select * from tb_user jdbc_x"));
         assertTrue(sql.contains("where  1=1"));
     }
 
@@ -70,11 +89,11 @@ public class QueryHelperTest {
     public void selectFieldsAndAlias() {
         QueryHelper<UserEntity> qh = new QueryHelper<>(UserEntity.class);
         String sql = qh.selectFields("userName", "age").getSql();
-        assertTrue(sql.contains("select user_name, age from `tb_user`"));
+        assertTrue(sql.contains("select user_name, age from tb_user"));
 
         QueryHelper<UserEntity> qh2 = new QueryHelper<>(UserEntity.class);
         String sql2 = qh2.selectFields("userName as u").getSql();
-        assertTrue(sql2.contains("select user_name as u from `tb_user`"));
+        assertTrue(sql2.contains("select user_name as u from tb_user"));
     }
 
     @Test

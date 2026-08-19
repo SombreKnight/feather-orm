@@ -181,7 +181,9 @@ cd feather-orm-samples && mvn spring-boot:run
 
 - Java 8+（JDK 8 / 17 / 21 已验证），Spring Boot 2.x（2.0 ~ 2.7），目标后续兼容 Spring Boot 3.x
 - Javassist 字节码生成已适配模块系统：JDK 9+ 走 `MethodHandles.defineClass`，无需 `--add-opens` 参数
-- 当前面向 MySQL（反引号列名、`LIMIT offset, size` 分页方言）
+- **多数据库方言**：`feather.orm.dialect` 自动探测（默认 `auto`），支持 MySQL/MariaDB/TiDB/OceanBase、
+  PostgreSQL/openGauss/KingbaseES、SQL Server、Oracle 12c+、SQLite、H2、达梦 DM；
+  标识符引用与分页语法按方言族生成（详见 [usage.md](usage.md) 第 11 节）
 
 ## 设计取舍（当前版本）
 
@@ -191,10 +193,11 @@ cd feather-orm-samples && mvn spring-boot:run
 
 ## Roadmap
 
+- [x] 多数据库方言层（`feather.orm.dialect` 自动探测 + 可配置）
 - [ ] Spring Boot 3.x 兼容验证与 CI 矩阵
+- [ ] PostgreSQL / MySQL / H2 多库集成测试矩阵（CI 服务容器）
 - [ ] `@Transactional` 与编程式事务的传播测试
 - [ ] 批量插入按"非空列集合"分组优化（已实现）
-- [ ] H2/MySQL 双数据库集成测试
 - [ ] Maven Central 发布
 
 ## License

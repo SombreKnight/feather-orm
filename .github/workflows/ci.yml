@@ -11,6 +11,25 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '17' ]
+    services:
+      # PostgreSQL 方言集成测试（PostgresDialectIntegrationTest）
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: feather_test
+          POSTGRES_USER: feather
+          POSTGRES_PASSWORD: feather
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U feather -d feather_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PG_TEST_URL: jdbc:postgresql://localhost:5432/feather_test
+      PG_TEST_USERNAME: feather
+      PG_TEST_PASSWORD: feather
     steps:
       - name: Checkout
         uses: actions/checkout@v4

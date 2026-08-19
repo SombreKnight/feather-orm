@@ -1,5 +1,6 @@
 package io.github.sombreknight.feather.core;
 
+import io.github.sombreknight.feather.dialect.SqlDialect;
 import io.github.sombreknight.feather.exception.FeatherDaoException;
 import io.github.sombreknight.feather.mapping.ColumnMapper;
 import io.github.sombreknight.feather.mapping.Mapper;
@@ -33,7 +34,6 @@ public class QueryHelper<T extends BaseEntity> {
     private static final String KEY_WORD_AND = " and ";
     private static final String KEY_WORD_ORDER_BY = " order by ";
     private static final String KEY_WORD_GROUP_BY = " group by ";
-    private static final String KEY_WORD_LIMIT = " limit ";
     private static final String KEY_WORD_ASC = " asc";
     private static final String KEY_WORD_DESC = " desc";
     private static final String KEY_WORD_IN = " in ";
@@ -44,8 +44,6 @@ public class QueryHelper<T extends BaseEntity> {
     private static final String KEY_WORD_LT = " < ";
     private static final String KEY_WORD_LIKE = " like ";
     private static final String KEY_WORD_EQUAL = " = ";
-    private static final String KEY_WORD_FORCE_INDEX = " force index ";
-    private static final String KEY_WORD_FOR_UPDATE = " for update ";
     private static final String SEPARATOR_COMMA = ", ";
     private static final String SEPARATOR_LEFT = "(";
     private static final String SEPARATOR_RIGHT = ")";
@@ -53,6 +51,7 @@ public class QueryHelper<T extends BaseEntity> {
 
     private final Class<T> tableClass;
     private final ColumnMapper<T> columnMapper;
+    private final SqlDialect dialect;
 
     private final List<String> selectFieldList = new ArrayList<>(4);
     private final StringBuilder whereBlock = new StringBuilder(" 1=1 ");
@@ -81,6 +80,7 @@ public class QueryHelper<T extends BaseEntity> {
     public QueryHelper(Class<T> tableClass, boolean logShowSql) {
         this.tableClass = tableClass;
         this.columnMapper = Mapper.getInstance().getColumnMapper(tableClass);
+        this.dialect = Mapper.getInstance().getDialect();
         this.logShowSql = logShowSql;
     }
 
@@ -202,17 +202,17 @@ public class QueryHelper<T extends BaseEntity> {
     }
 
     /**
-     * 指定分页（配合 findPageByPageNum 时 JdbcDAO 自动拼接 limit）
+     * 指定分页（配合 findPageByPageNum 时 JdbcDAO 自动拼接分页片段）
      */
     public QueryHelper<T> limit(Integer page, Integer pageSize) {
         this.page = page;
         this.pageSize = pageSize;
-        limitBlock.append(KEY_WORD_LIMIT).append(page).append(SEPARATOR_COMMA).append(pageSize);
+        limitBlock.append(dialect.limitClause(page, pageSize));
         return this;
     }
 
     public QueryHelper<T> limit(Integer limit) {
-        limitBlock.append(KEY_WORD_LIMIT).append(limit);
+        limitBlock.append(dialect.limitClause(limit));
         return this;
     }
 
@@ -221,18 +221,22 @@ public class QueryHelper<T extends BaseEntity> {
     }
 
     /**
-     * 强制走索引（MySQL）
+     * 强制走索引（仅 MySQL 系支持，其他方言直接抛异常 fail-fast）
      */
     public QueryHelper<T> forceIndex(String indexName) {
+        if (!dialect.supportsForceIndex()) {
+            throw new FeatherDaoException("数据库[" + dialect.getName() + "]不支持 FORCE INDEX（仅 MySQL 系支持），请移除 forceIndex()");
+        }
         this.forceIndexName = indexName;
         this.forIndexSwitch = true;
         return this;
     }
 
     /**
-     * 悲观锁
+     * 悲观锁：SQL Server 等不支持 FOR UPDATE 的方言在此直接抛异常；SQLite 单写者自动忽略
      */
     public QueryHelper<T> forUpdate() {
+        dialect.forUpdateClause(); // 提前校验方言支持性（fail-fast）
         this.forUpdate = true;
         return this;
     }
@@ -271,8 +275,7 @@ public class QueryHelper<T extends BaseEntity> {
         StringBuilder sb = new StringBuilder();
         // force index 必须紧跟表名（from 之后、where 之前），因此放在 where 前面
         if (forIndexSwitch && forceIndexName != null) {
-            sb.append(KEY_WORD_FORCE_INDEX).append(SEPARATOR_LEFT)
-                    .append(forceIndexName).append(SEPARATOR_RIGHT);
+            sb.append(dialect.forceIndexClause(forceIndexName));
         }
         sb.append(KEY_WORD_WHERE).append(whereBlock);
         if (groupByBlock.length() > 0) {
@@ -286,7 +289,10 @@ public class QueryHelper<T extends BaseEntity> {
             sb.append(limitBlock);
         }
         if (forUpdate) {
-            sb.append(KEY_WORD_FOR_UPDATE);
+            String lockClause = dialect.forUpdateClause();
+            if (lockClause != null) {
+                sb.append(lockClause);
+            }
         }
         String sql = sb.toString();
         if (logShowSql) {
