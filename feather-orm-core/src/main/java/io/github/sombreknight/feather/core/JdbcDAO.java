@@ -11,7 +11,6 @@ import io.github.sombreknight.feather.mapping.FieldRowMapper;
 import io.github.sombreknight.feather.mapping.Mapper;
 import io.github.sombreknight.feather.mapping.RowMapperSupport;
 import io.github.sombreknight.feather.util.RandomUtils;
-import io.github.sombreknight.feather.util.ReflectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -185,7 +184,7 @@ public class JdbcDAO {
             if (PK_FIELD_NAME.equals(field.getName())) {
                 continue; // 主键不进 SET
             }
-            Object value = ReflectUtils.getFieldValue(field, entity);
+            Object value = handler.getValue(entity);
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             if (jdbcValue == null) {
                 continue; // 非 null 字段才参与更新
@@ -262,7 +261,7 @@ public class JdbcDAO {
             Map<String, Object> params = new HashMap<>();
             for (FieldHandler handler : settableHandlers) {
                 Field field = handler.getMeta().getField();
-                Object value = ReflectUtils.getFieldValue(field, entity);
+                Object value = handler.getValue(entity);
                 Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
                 params.put(field.getName(), jdbcValue); // null 时 COALESCE 保留原值
             }
@@ -600,7 +599,7 @@ public class JdbcDAO {
         Map<String, Object> params = new HashMap<>();
         for (FieldHandler handler : handlers) {
             Field field = handler.getMeta().getField();
-            Object value = ReflectUtils.getFieldValue(field, entity);
+            Object value = handler.getValue(entity);
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             if (jdbcValue == null) {
                 continue; // null 值跳过：insert 为 NULL（DB 默认值生效），绝不写空串
@@ -633,7 +632,7 @@ public class JdbcDAO {
             if (!fieldNames.contains(fieldName)) {
                 continue;
             }
-            Object value = ReflectUtils.getFieldValue(handler.getMeta().getField(), entity);
+            Object value = handler.getValue(entity);
             // 必须经过 TypeHandler 转换（枚举→业务码、复杂对象→JSON、FeatherDate→Timestamp）
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             params.put(fieldName, jdbcValue);
@@ -650,7 +649,7 @@ public class JdbcDAO {
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
         List<String> names = new ArrayList<>();
         for (FieldHandler handler : handlers) {
-            Object value = ReflectUtils.getFieldValue(handler.getMeta().getField(), entity);
+            Object value = handler.getValue(entity);
             Object jdbcValue = handler.getHandler().toJdbcValue(value, handler.getMeta());
             if (jdbcValue != null) {
                 names.add(handler.getMeta().getField().getName());

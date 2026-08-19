@@ -132,9 +132,9 @@ public class JavassistRowMapperFactory implements RowMapperFactory {
                             .append(typeName(field.getType())).append(") ").append(expr).append(");\n");
                 }
             } else {
-                sb.append("        ").append(FieldAccessSupport.class.getName())
-                        .append(".setFieldValue(entity, \"").append(field.getName())
-                        .append("\", ").append(expr).append(");\n");
+                // 无 setter：走 FieldHandler 构建期解析的字段 MethodHandle（消除逐行反射）
+                sb.append("        this.handlers[").append(i).append("].setValue(entity, ")
+                        .append(expr).append(");\n");
             }
             sb.append("    } catch (java.sql.SQLException e) {\n");
             if (dto) {

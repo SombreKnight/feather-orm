@@ -65,7 +65,7 @@ public class RowMapperSupport {
             List<FieldMeta> metas = mapper.getFieldMetas();
             FieldHandler[] handlers = new FieldHandler[metas.size()];
             for (int i = 0; i < metas.size(); i++) {
-                handlers[i] = resolve(metas.get(i));
+                handlers[i] = resolve(metas.get(i), (Class<T>) c);
             }
             return handlers;
         });
@@ -82,14 +82,14 @@ public class RowMapperSupport {
                 if (!ReflectUtils.isMappable(field) || Modifier.isVolatile(field.getModifiers())) {
                     continue;
                 }
-                handlers.add(resolve(FieldMeta.of(field)));
+                handlers.add(resolve(FieldMeta.of(field), c));
             }
             return handlers.toArray(new FieldHandler[0]);
         });
     }
 
-    private FieldHandler resolve(FieldMeta meta) {
+    private FieldHandler resolve(FieldMeta meta, Class<?> clazz) {
         TypeHandler handler = registry.resolve(meta.getJavaType(), meta);
-        return new FieldHandler(handler, meta, meta.getColumn());
+        return new FieldHandler(handler, meta, meta.getColumn(), clazz);
     }
 }
