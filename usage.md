@@ -398,7 +398,7 @@ transactionTemplate.executeWithoutResult(status -> {
 
 ## 11. 兼容性与限制
 
-- **Java 8+**（JDK 8/17/21 已验证），**Spring Boot 2.x**（2.0~2.7，目标兼容 3.x）
+- **Java 17+**（JDK 17/21 已验证），**Spring Boot 3.x**（3.0~3.5，基线 3.5.16）；Java 8 / Boot 2 用户请锁定 v0.2.0
 - **SQL 方言可配置**（`feather.orm.dialect`），默认 `auto` 从 JDBC 元数据自动探测：
 
 ```yaml

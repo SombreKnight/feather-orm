@@ -179,7 +179,8 @@ cd feather-orm-samples && mvn spring-boot:run
 
 ## 兼容性
 
-- Java 8+（JDK 8 / 17 / 21 已验证），Spring Boot 2.x（2.0 ~ 2.7），目标后续兼容 Spring Boot 3.x
+- Java 17+（JDK 17 / 21 已验证），Spring Boot 3.x（3.0 ~ 3.5，基线 3.5.16）
+- **Java 8 / Spring Boot 2.x 用户请锁定 [v0.2.0](https://github.com/SombreKnight/feather-orm/releases/tag/v0.2.0)**（Boot 2 最终支持版本，Maven Central 可下载）
 - Javassist 字节码生成已适配模块系统：JDK 9+ 走 `MethodHandles.defineClass`，无需 `--add-opens` 参数
 - **多数据库方言**：`feather.orm.dialect` 自动探测（默认 `auto`），支持 MySQL/MariaDB/TiDB/OceanBase、
   PostgreSQL/openGauss/KingbaseES、SQL Server、Oracle 12c+、SQLite、H2、达梦 DM；
@@ -193,8 +194,8 @@ cd feather-orm-samples && mvn spring-boot:run
 
 ## Roadmap
 
-- [x] 多数据库方言层（`feather.orm.dialect` 自动探测 + 可配置）
-- [ ] Spring Boot 3.x 兼容验证与 CI 矩阵
+- [x] Spring Boot 3.x 兼容（基线 3.5.16，Java 17+；Boot 2 用户锁定 v0.2.0）
+- [ ] Spring Boot 4.x 迁移评估（Spring Framework 7 / Jackson 3 / 模块化自动配置）
 - [ ] PostgreSQL / MySQL / H2 多库集成测试矩阵（CI 服务容器）
 - [ ] `@Transactional` 与编程式事务的传播测试
 - [ ] 批量插入按"非空列集合"分组优化（已实现）

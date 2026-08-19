@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [ '8', '17' ]
+        java: [ '17', '21' ]
     services:
       # PostgreSQL 方言集成测试（PostgresDialectIntegrationTest）
       postgres:

@@ -6,10 +6,10 @@ import io.github.sombreknight.feather.samples.entity.OrderStatus;
 import io.github.sombreknight.feather.samples.entity.UserEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Resource;
 import java.util.Arrays;
 
 /**
@@ -22,7 +22,7 @@ public class SampleDataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(SampleDataInitializer.class);
 
-    @Resource
+    @Autowired
     private UserDAO userDAO;
 
     @Override

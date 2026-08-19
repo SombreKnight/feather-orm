@@ -4,6 +4,7 @@ import io.github.sombreknight.feather.core.PagingResult;
 import io.github.sombreknight.feather.samples.dao.UserDAO;
 import io.github.sombreknight.feather.samples.entity.UserEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
 import java.util.List;
 
 /**
@@ -26,7 +26,7 @@ import java.util.List;
 @RequestMapping("/users")
 public class UserController {
 
-    @Resource
+    @Autowired
     private UserDAO userDAO;
 
     /**

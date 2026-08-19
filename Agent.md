@@ -13,13 +13,15 @@
 | 仓库 | https://github.com/SombreKnight/feather-orm（默认分支 `main`） |
 | 包名 | `io.github.sombreknight.feather` |
 | 坐标 | `io.github.sombreknight:feather-orm-spring-boot-starter`（已发布 Maven Central） |
-| 当前版本 | 0.2.0（发版流程见第 6/7 节） |
+| 当前版本 | 0.3.0（发版流程见第 6/7 节） |
 | License | Apache 2.0 |
-| 技术栈 | Java 8 字节码（JDK 8/17/21 兼容）、Spring Boot 2.7.x BOM、Javassist 3.29.2、Jackson、HikariCP |
+| 技术栈 | Java 17 字节码（JDK 17/21 兼容）、Spring Boot 3.5.x BOM、Javassist 3.29.2、Jackson、HikariCP |
 
 ## 2. 本地开发环境
 
-- **默认 JDK 8**（`mvn` 走 JDK 8）；**JDK 17** 在 `/Users/zhangchenxi/Library/Java/JavaVirtualMachines/jdk-17.0.20.jdk`（验证 17+ 兼容时用）
+- **默认 JDK 17**：`/Users/zhangchenxi/Library/Java/JavaVirtualMachines/jdk-17.0.20.jdk`（Zulu 17）；
+  构建前 `export JAVA_HOME=/Users/zhangchenxi/Library/Java/JavaVirtualMachines/jdk-17.0.20.jdk/Contents/Home`
+  （系统默认 java 是 1.8，`mvn` 直接跑会因 Boot 3 编译失败）
 - Maven 3.8.6，本地 `~/.m2/settings.xml` 含：阿里云镜像 + rdc 仓库 + **`central` server（Sonatype token，本地发版用）**
 - **gh CLI 已登录**（SombreKnight，keyring 认证）——查 Actions/设置 secrets 直接用 gh
 - GPG 签名密钥：`EBCD864645131551`（无口令，自动化签名用），私钥备份在 `~/feather-orm-gpg-backup/`（**勿提交仓库**）
@@ -109,7 +111,7 @@ git tag v0.1.2 && git push origin v0.1.2
 
 ## 8. CI 工作流说明
 
-- **`.github/workflows/ci.yml`**：push/PR 触发，JDK 8 + 17 矩阵跑 `mvn test`（质量门禁）
+- **`.github/workflows/ci.yml`**：push/PR 触发，JDK 17 + 21 矩阵跑 `mvn test`（质量门禁，含 PG16/MySQL8 服务容器集成测试）
 - **`.github/workflows/release.yml`**：`v*` tag 触发：checkout → setup-java(JDK17+GPG) → 写 settings.xml → `versions:set`（tag 版本号写入所有 pom）→ `mvn test` → `mvn clean deploy -pl '!feather-orm-samples'`
 - 改 workflow 后：push 到 main 即可；已存在的 tag 需 `git tag -f vX.Y.Z && git push -f origin vX.Y.Z` 重新触发
 
