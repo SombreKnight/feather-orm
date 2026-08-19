@@ -13,7 +13,7 @@
 | 仓库 | https://github.com/SombreKnight/feather-orm（默认分支 `main`） |
 | 包名 | `io.github.sombreknight.feather` |
 | 坐标 | `io.github.sombreknight:feather-orm-spring-boot-starter`（已发布 Maven Central） |
-| 当前版本 | 0.1.1（发版流程见第 6/7 节） |
+| 当前版本 | 0.2.0（发版流程见第 6/7 节） |
 | License | Apache 2.0 |
 | 技术栈 | Java 8 字节码（JDK 8/17/21 兼容）、Spring Boot 2.7.x BOM、Javassist 3.29.2、Jackson、HikariCP |
 
