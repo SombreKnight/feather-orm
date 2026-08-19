@@ -408,7 +408,8 @@ public class JdbcDAO {
     public <T extends BaseEntity> long count(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
-        String sql = mapper.getCountSql() + whereSql;
+        // 剥离 order by / for update：PostgreSQL 等对 count(*) 带 order by 直接报错
+        String sql = mapper.getCountSql() + dialect.stripTailForCount(whereSql);
         setDataSourceKey(false);
         try {
             Long value = namedParameterJdbcTemplate.queryForObject(sql, paramToMap(param), Long.class);

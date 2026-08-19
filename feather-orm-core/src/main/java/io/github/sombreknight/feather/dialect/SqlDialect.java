@@ -77,6 +77,16 @@ public interface SqlDialect {
     }
 
     /**
+     * 剥离查询尾部对 count 无意义的子句（最外层 order by / for update）。
+     *
+     * <p>注意：PostgreSQL 等严格模式数据库对 {@code count(*) ... order by col} 直接报错
+     * （聚合列必须出现在 GROUP BY 中），因此实体 count 拼接也必须先剥离。</p>
+     */
+    default String stripTailForCount(String sql) {
+        return AbstractDialect.stripTail(sql);
+    }
+
+    /**
      * OFFSET/FETCH 类方言（SQL Server / Oracle）要求分页查询必须先有 ORDER BY，
      * 无排序时框架自动补 {@code order by (select 0)} 以满足语法要求。
      */
