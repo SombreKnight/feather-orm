@@ -32,8 +32,17 @@ public class FieldMeta {
      * @param dialect 当前数据库方言（决定列名引用形式）
      */
     public FieldMeta(Field field, String column, SqlDialect dialect) {
+        this(field, column, dialect, null);
+    }
+
+    /**
+     * @param dialect           当前数据库方言（决定列名引用形式）
+     * @param javaTypeOverride  Java 类型覆盖（可为 null；泛型基类字段如 {@code BaseEntity&lt;ID&gt;.id}
+     *                          擦除为 {@code Object} 时，传入泛型实参还原真实类型）
+     */
+    public FieldMeta(Field field, String column, SqlDialect dialect, Class<?> javaTypeOverride) {
         this.field = field;
-        this.javaType = field.getType();
+        this.javaType = javaTypeOverride != null ? javaTypeOverride : field.getType();
         this.genericType = field.getGenericType();
         this.column = column;
         this.quotedColumn = dialect.quoteIdentifier(column);

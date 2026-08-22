@@ -194,7 +194,7 @@ public class ReflectionRowMapperCrudTest {
      * （嵌套类可直接访问私有字段赋值）
      */
     @Table("tb_no_setter")
-    public static class NoSetterEntity extends BaseEntity {
+    public static class NoSetterEntity extends BaseEntity<Long> {
         private String name;
         private int count;
         private boolean enabled;
@@ -240,12 +240,17 @@ public class ReflectionRowMapperCrudTest {
         }
     }
 
-    public static class FixedIdGenerator implements IdGenerator {
+    public static class FixedIdGenerator implements IdGenerator<Long> {
         private long seq = 0;
 
         @Override
-        public long nextId() {
+        public Long nextId() {
             return ++seq;
+        }
+
+        @Override
+        public Class<Long> idType() {
+            return Long.class;
         }
     }
 }

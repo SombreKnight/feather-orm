@@ -34,7 +34,7 @@ feather-orm
 │   └── io/github/sombreknight/feather
 │       ├── annotation    @Table(value,idColumn) / @Column(value) / @EnumValue
 │       ├── core          BaseEntity / BaseDAO / JdbcDAO / QueryHelper / SqlParam
-│       │                 PageInfo / PagingResult / IdGenerator / SnowflakeIdGenerator
+│       │                 PageInfo / PagingResult / IdGenerator / SnowflakeIdGenerator / UuidIdGenerator
 │       ├── type          TypeHandler(SPI) / TypeHandlerRegistry / CodeEnum
 │       │                 Simple/Temporal/FeatherDate/Enum/JsonTypeHandler
 │       ├── mapping       ColumnMapper / Mapper / FieldMeta / FieldHandler
@@ -55,7 +55,7 @@ feather-orm
 
 ## 4. 核心设计约定（改代码必须遵守）
 
-1. **命名**：实体 `XxxEntity extends BaseEntity`；DAO `XxxDAO extends BaseDAO<XxxEntity>` 且标 `@Repository`；查询投影用 DTO。**禁止再引入 DO/domain/VO 命名**（2024 重构已统一为 Entity/DTO）
+1. **命名**：实体 `XxxEntity extends BaseEntity<Long>`（雪花主键）或 `BaseEntity<String>`（UUID 主键）；DAO `XxxDAO extends BaseDAO<XxxEntity>` 且标 `@Repository`；查询投影用 DTO。**禁止再引入 DO/domain/VO 命名**（2024 重构已统一为 Entity/DTO）
 2. **列名约定**：驼峰→下划线（`userName`→`user_name`）；不规则列名才用 `@Column`；主键列名默认 `id`，特殊用 `@Table(idColumn=...)`
 3. **类型映射**：复杂对象/集合字段**零注解自动 JSON**；枚举默认 `name()`，业务码用 `CodeEnum<T>`（`getValue()`），第三方枚举用 `@EnumValue("方法名")` 逃生舱
 4. **null 语义**：insert 跳过 null 列（DB 默认值生效）；update 只更新非 null 字段（COALESCE，null 字段不触碰）

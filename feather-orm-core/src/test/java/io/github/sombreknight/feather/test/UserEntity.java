@@ -12,7 +12,7 @@ import java.util.List;
  * @author sombreknight
  */
 @Table("tb_user")
-public class UserEntity extends BaseEntity {
+public class UserEntity extends BaseEntity<Long> {
 
     /** 约定映射 user_name */
     private String userName;

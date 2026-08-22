@@ -23,7 +23,7 @@
 - **Javassist 运行时字节码 RowMapper**：生成期预解析类型处理器，运行时零反射、零查表；可切换到纯反射实现兜底
 - **一主多从读写分离（可选）**：配置 `replicas` 即启用，写操作与按主键查询走主库，普通查询随机从库；不配即单节点零路由开销；`forceMaster()` 随时强制主库
 - **事务开箱即用**：`@Transactional` + 编程式 `TransactionTemplate` 均可用
-- **Snowflake 默认主键**：id 为空自动生成，也可自行指定
+- **泛型主键 + 双生成器**：`BaseEntity<Long>` 默认雪花、`BaseEntity<String>` 默认 UUID，id 为空按主键类型自动生成，也可自行指定
 - **Fail-fast 安全**：查询条件里的未知字段立即抛异常，杜绝 SQL 注入拼串
 
 ## 快速开始
@@ -63,7 +63,7 @@ feather:
 
 ```java
 @Table("tb_user")
-public class UserEntity extends BaseEntity {
+public class UserEntity extends BaseEntity<Long> {
 
     private String userName;            // 约定映射 user_name
     private Integer age;

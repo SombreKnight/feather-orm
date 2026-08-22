@@ -216,10 +216,15 @@ public class JdbcDAOAdvancedTest {
     /**
      * 顺序递增 id（避免与其它测试类的 FixedIdGenerator 耦合）
      */
-    static class SeqIdGenerator implements IdGenerator {
+    static class SeqIdGenerator implements IdGenerator<Long> {
         @Override
-        public synchronized long nextId() {
+        public synchronized Long nextId() {
             return idSequence++;
+        }
+
+        @Override
+        public Class<Long> idType() {
+            return Long.class;
         }
     }
 }

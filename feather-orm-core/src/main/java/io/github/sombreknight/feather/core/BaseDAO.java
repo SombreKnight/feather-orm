@@ -26,7 +26,7 @@ import java.util.Map;
  * @param <T> 实体类型
  * @author sombreknight
  */
-public class BaseDAO<T extends BaseEntity> {
+public class BaseDAO<T extends BaseEntity<?>> {
 
     @Autowired
     protected JdbcDAO jdbcDAO;
@@ -63,7 +63,7 @@ public class BaseDAO<T extends BaseEntity> {
     // ==================== 删除 ====================
 
     public boolean deleteEntity(T entity) {
-        if (entity == null || entity.getId() == null || entity.getId() <= 0) {
+        if (entity == null || entity.getId() == null) {
             return false;
         }
         return 1 == jdbcDAO.deleteEntity(getEntityClass(), entity);
@@ -100,25 +100,29 @@ public class BaseDAO<T extends BaseEntity> {
 
     // ==================== 按主键查询 ====================
 
-    public T findById(Long id) {
+    /**
+     * 按主键查询（主键类型与实体 {@code BaseEntity&lt;ID&gt;} 一致）
+     */
+    public <ID> T findById(ID id) {
         return jdbcDAO.findById(getEntityClass(), id);
     }
 
-    public List<T> findByIds(List<Long> ids) {
+    public <ID> List<T> findByIds(List<ID> ids) {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();
         }
         return jdbcDAO.findByIds(getEntityClass(), ids);
     }
 
-    public Map<Long, T> findMapByIds(List<Long> ids) {
+    @SuppressWarnings("unchecked")
+    public <ID> Map<ID, T> findMapByIds(List<ID> ids) {
         List<T> list = findByIds(ids);
         if (list.isEmpty()) {
             return Collections.emptyMap();
         }
-        Map<Long, T> map = new HashMap<>(list.size());
+        Map<ID, T> map = new HashMap<>(list.size());
         for (T t : list) {
-            map.put(t.getId(), t);
+            map.put((ID) t.getId(), t);
         }
         return map;
     }

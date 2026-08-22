@@ -330,12 +330,17 @@ public class FeatherOrmCrudTest {
     /**
      * 固定递增 ID 生成器（测试用）
      */
-    static class FixedIdGenerator implements IdGenerator {
+    static class FixedIdGenerator implements IdGenerator<Long> {
         private long next = 1;
 
         @Override
-        public synchronized long nextId() {
+        public synchronized Long nextId() {
             return next++;
+        }
+
+        @Override
+        public Class<Long> idType() {
+            return Long.class;
         }
     }
 }

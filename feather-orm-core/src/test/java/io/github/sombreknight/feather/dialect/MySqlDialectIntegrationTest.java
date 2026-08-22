@@ -168,12 +168,17 @@ public class MySqlDialectIntegrationTest {
     }
 
     /** 固定 id 生成器，保证测试可预期 */
-    public static class FixedIdGenerator implements IdGenerator {
+    public static class FixedIdGenerator implements IdGenerator<Long> {
         private long seq = 1000;
 
         @Override
-        public long nextId() {
+        public Long nextId() {
             return ++seq;
+        }
+
+        @Override
+        public Class<Long> idType() {
+            return Long.class;
         }
     }
 }

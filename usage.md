@@ -44,7 +44,7 @@ feather:
 
 ```java
 @Table("tb_user")
-public class UserEntity extends BaseEntity {
+public class UserEntity extends BaseEntity<Long> {
     private String userName;        // 约定映射 user_name
     private Integer age;
     private OrderStatus status;     // 枚举
@@ -71,7 +71,8 @@ List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual(Use
 
 ### 2.1 基类 `BaseEntity`
 
-- 唯一强制字段：`private Long id`（主键），继承即有
+- 唯一强制字段：`private ID id`（泛型主键），继承即有；`Long` 与 `String` 均可
+- 主键类型由泛型参数声明（`extends BaseEntity<Long>` / `extends BaseEntity<String>`），JdbcDAO 按类型自动匹配生成器
 - 主键列名默认 `id`；如列名不同（如 `uid`），用 `@Table(idColumn = "uid")` 指定
 - **无** 其他默认字段（无 appId、无版本号、无创建/更新时间——全部按需自行声明）
 
@@ -96,7 +97,7 @@ List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual(Use
 
 ```java
 @Table(value = "tb_user", idColumn = "id")
-public class UserEntity extends BaseEntity {
+public class UserEntity extends BaseEntity<Long> {
 
     private String userName;            // → user_name（约定）
     private Integer age;                // → age（约定）
@@ -223,9 +224,9 @@ public class MyHandler implements TypeHandler {
 ### 按主键查询
 | 方法 | 说明 |
 |---|---|
-| `T findById(Long id)` | 单查；id 非法/不存在返回 null；**走主库** |
-| `List<T> findByIds(List<Long> ids)` | 批量；>100 自动分批（每批 100） |
-| `Map<Long, T> findMapByIds(List<Long> ids)` | id → 实体 Map |
+| `<ID> T findById(ID id)` | 单查；id 为 null/不存在返回 null；**走主库** |
+| `<ID> List<T> findByIds(List<ID> ids)` | 批量；>100 自动分批（每批 100） |
+| `<ID> Map<ID, T> findMapByIds(List<ID> ids)` | id → 实体 Map |
 
 ### 条件查询（配 QueryHelper）
 | 方法 | 说明 |
@@ -396,10 +397,11 @@ transactionTemplate.executeWithoutResult(status -> {
 
 ## 9. ID 生成
 
-- **默认**：`SnowflakeIdGenerator`（雪花算法），`id == null` 时自动生成
-- **多实例部署**：建议配置 `feather.orm.worker-id` 避免 id 冲突
-- **自定义**：注册 `IdGenerator` Bean 即覆盖（`@ConditionalOnMissingBean`）
+- **按主键类型自动匹配**：`Long` 主键 → `SnowflakeIdGenerator`（雪花）；`String` 主键 → `UuidIdGenerator`（UUID）；均通过 `IdGenerator.idType()` 与实体泛型参数匹配
+- **多实例部署**：建议配置 `feather.orm.worker-id` 避免雪花 id 冲突
+- **自定义**：注册自定义 `IdGenerator<ID>` Bean 即自动纳入匹配（stater 默认按 `@ConditionalOnMissingBean` 提供雪花与 UUID 两个生成器）
 - **手动指定**：`saveEntity` 前自行 `setId(...)` 即可，框架不覆盖
+- **匹配不到 fail-fast**：实体主键类型没有对应生成器时保存立即报错，提示已注册生成器
 
 ---
 
@@ -463,7 +465,7 @@ feather:
 
 ## 13. 与 Agent 协作约定
 
-1. 实体类名 `XxxEntity extends BaseEntity`；DAO `XxxDAO extends BaseDAO<XxxEntity>` 并标 `@Repository`
+1. 实体类名 `XxxEntity extends BaseEntity<Long>`（雪花）或 `BaseEntity<String>`（UUID）；DAO `XxxDAO extends BaseDAO<XxxEntity>` 并标 `@Repository`
 2. 字段映射优先**约定**（驼峰→下划线），不规则才用 `@Column`
 3. 条件查询一律用 `QueryHelper`（杜绝 SQL 拼接注入）
 4. 复杂对象/集合字段零注解自动 JSON；枚举存业务码用 `CodeEnum`

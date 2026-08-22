@@ -111,12 +111,17 @@ public class FeatherDateTypeHandlerTest {
     /**
      * 递增 id（独立于其它测试类）
      */
-    static class FixedIdGenerator implements IdGenerator {
+    static class FixedIdGenerator implements IdGenerator<Long> {
         private long next = 1;
 
         @Override
-        public synchronized long nextId() {
+        public synchronized Long nextId() {
             return next++;
+        }
+
+        @Override
+        public Class<Long> idType() {
+            return Long.class;
         }
     }
 }

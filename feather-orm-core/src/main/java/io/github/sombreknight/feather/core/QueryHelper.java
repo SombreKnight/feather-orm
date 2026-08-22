@@ -30,7 +30,7 @@ import java.util.List;
  * @param <T> 实体类型
  * @author sombreknight
  */
-public class QueryHelper<T extends BaseEntity> {
+public class QueryHelper<T extends BaseEntity<?>> {
 
     private static final Logger log = LoggerFactory.getLogger(QueryHelper.class);
 

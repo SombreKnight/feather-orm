@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.github.sombreknight.feather.core.IdGenerator;
 import io.github.sombreknight.feather.core.JdbcDAO;
 import io.github.sombreknight.feather.core.SnowflakeIdGenerator;
+import io.github.sombreknight.feather.core.UuidIdGenerator;
 import io.github.sombreknight.feather.datasource.DataSourceKey;
 import io.github.sombreknight.feather.datasource.RoutingDataSource;
 import io.github.sombreknight.feather.dialect.DialectRegistry;
@@ -165,11 +166,23 @@ public class FeatherAutoConfiguration {
 
     // ==================== ID 生成器 ====================
 
+    /**
+     * Long 主键默认生成器：雪花算法（workerId 可配，见 {@code feather.orm.worker-id}）
+     */
     @Bean
-    @ConditionalOnMissingBean(IdGenerator.class)
-    public IdGenerator idGenerator(FeatherProperties properties) {
+    @ConditionalOnMissingBean(SnowflakeIdGenerator.class)
+    public SnowflakeIdGenerator snowflakeIdGenerator(FeatherProperties properties) {
         Long workerId = properties.getOrm().getWorkerId();
         return workerId == null ? new SnowflakeIdGenerator() : new SnowflakeIdGenerator(workerId);
+    }
+
+    /**
+     * String 主键默认生成器：UUID
+     */
+    @Bean
+    @ConditionalOnMissingBean(UuidIdGenerator.class)
+    public UuidIdGenerator uuidIdGenerator() {
+        return new UuidIdGenerator();
     }
 
     // ==================== 核心 DAO ====================
@@ -177,7 +190,7 @@ public class FeatherAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(JdbcDAO.class)
     public JdbcDAO jdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
-                           IdGenerator idGenerator,
+                           List<IdGenerator<?>> idGenerators,
                            RowMapperSupport rowMapperSupport,
                            SqlDialect sqlDialect,
                            FeatherProperties properties) {
@@ -185,7 +198,7 @@ public class FeatherAutoConfiguration {
         Mapper.getInstance().setDialect(sqlDialect);
         List<FeatherProperties.ConnectionInfo> replicas = properties.getDatasource().getReplicas();
         int slaveCount = replicas == null ? 0 : replicas.size();
-        return new JdbcDAO(namedParameterJdbcTemplate, idGenerator, rowMapperSupport, slaveCount, sqlDialect);
+        return new JdbcDAO(namedParameterJdbcTemplate, idGenerators, rowMapperSupport, slaveCount, sqlDialect);
     }
 
     // ==================== 编程式事务 ====================

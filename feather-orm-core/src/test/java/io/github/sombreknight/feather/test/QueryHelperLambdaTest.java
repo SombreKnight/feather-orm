@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class QueryHelperLambdaTest {
 
     @Table("tb_lambda_test")
-    public static class LambdaTestEntity extends BaseEntity {
+    public static class LambdaTestEntity extends BaseEntity<Long> {
         private boolean active;
 
         public boolean isActive() {

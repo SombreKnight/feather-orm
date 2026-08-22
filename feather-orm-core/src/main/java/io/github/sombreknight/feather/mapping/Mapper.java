@@ -48,7 +48,7 @@ public final class Mapper {
     }
 
     @SuppressWarnings("unchecked")
-    public <T extends BaseEntity> ColumnMapper<T> getColumnMapper(Class<T> clazz) {
+    public <T extends BaseEntity<?>> ColumnMapper<T> getColumnMapper(Class<T> clazz) {
         return (ColumnMapper<T>) clazzMapperCache.computeIfAbsent(clazz,
                 c -> new ColumnMapper<>((Class<T>) c, dialect));
     }

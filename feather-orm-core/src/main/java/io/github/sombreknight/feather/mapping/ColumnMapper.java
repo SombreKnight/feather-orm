@@ -20,7 +20,7 @@ import java.util.List;
  *
  * @author sombreknight
  */
-public class ColumnMapper<T extends BaseEntity> {
+public class ColumnMapper<T extends BaseEntity<?>> {
 
     private static final String PK_FIELD_NAME = "id";
 
@@ -30,6 +30,7 @@ public class ColumnMapper<T extends BaseEntity> {
     private final String quotedTableName;
     private final String idColumn;
     private final String quotedIdColumn;
+    private final Class<?> pkType;
     private final List<FieldMeta> fieldMetas;
 
     private final String fromSql;
@@ -53,12 +54,16 @@ public class ColumnMapper<T extends BaseEntity> {
             if (!ReflectUtils.isMappable(field) || Modifier.isVolatile(field.getModifiers())) {
                 continue;
             }
-            FieldMeta meta = FieldMeta.of(field, dialect);
-            if (PK_FIELD_NAME.equals(field.getName()) && !tableIdColumn.isEmpty()) {
-                // 主键列名由 @Table.idColumn 指定
-                meta = new FieldMeta(field, tableIdColumn, dialect);
+            if (PK_FIELD_NAME.equals(field.getName())) {
+                // 主键字段：列名由 @Table.idColumn 指定（缺省用约定映射）；
+                // 泛型基类字段被擦除为 Object，需从泛型签名还原真实主键类型
+                FieldMeta meta = FieldMeta.of(field, dialect);
+                String idCol = tableIdColumn.isEmpty() ? meta.getColumn() : tableIdColumn;
+                Class<?> resolvedPkType = ReflectUtils.resolveTypeArgument(clazz, 0, BaseEntity.class);
+                metas.add(new FieldMeta(field, idCol, dialect, resolvedPkType));
+                continue;
             }
-            metas.add(meta);
+            metas.add(FieldMeta.of(field, dialect));
         }
         this.fieldMetas = Collections.unmodifiableList(metas);
 
@@ -77,6 +82,7 @@ public class ColumnMapper<T extends BaseEntity> {
         }
         this.idColumn = resolvedIdColumn;
         this.quotedIdColumn = quote(resolvedIdColumn);
+        this.pkType = ReflectUtils.resolveTypeArgument(clazz, 0, BaseEntity.class);
 
         this.fromSql = " select jdbc_x.* from " + quotedTableName + " jdbc_x ";
         this.countSql = " select count(*) from " + quotedTableName + " jdbc_x ";
@@ -117,6 +123,13 @@ public class ColumnMapper<T extends BaseEntity> {
      */
     public String getQuotedIdColumn() {
         return quotedIdColumn;
+    }
+
+    /**
+     * 主键 Java 类型（由 {@code BaseEntity&lt;ID&gt;} 泛型参数还原，如 String / Long）
+     */
+    public Class<?> getPkType() {
+        return pkType;
     }
 
     public List<FieldMeta> getFieldMetas() {

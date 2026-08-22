@@ -43,7 +43,8 @@ public class JdbcDAO {
     private static final int BATCH_SIZE = 100;
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-    private final IdGenerator idGenerator;
+    private final List<IdGenerator<?>> idGenerators;
+    private final Map<Class<?>, IdGenerator<?>> idGeneratorByType;
     private final RowMapperSupport rowMapperSupport;
     private final int slaveCount;
     private final SqlDialect dialect;
@@ -51,25 +52,60 @@ public class JdbcDAO {
     private final ThreadLocal<Boolean> forceMaster = new ThreadLocal<>();
 
     /**
-     * @deprecated 建议显式指定方言（默认使用最小引用的 DefaultDialect，见 {@link DialectRegistry#defaultDialect()}）
+     * 兼容构造：多个主键生成器，方言使用默认（DefaultDialect）
      */
     public JdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
-                   IdGenerator idGenerator,
+                   List<IdGenerator<?>> idGenerators,
+                   RowMapperSupport rowMapperSupport,
+                   int slaveCount) {
+        this(namedParameterJdbcTemplate, idGenerators, rowMapperSupport, slaveCount, DialectRegistry.defaultDialect());
+    }
+
+    /**
+     * 兼容构造：单个主键生成器（实体主键类型须与该生成器 {@code idType()} 一致）
+     */
+    public JdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+                   IdGenerator<?> idGenerator,
                    RowMapperSupport rowMapperSupport,
                    int slaveCount) {
         this(namedParameterJdbcTemplate, idGenerator, rowMapperSupport, slaveCount, DialectRegistry.defaultDialect());
     }
 
+    /**
+     * 兼容构造：单个主键生成器（实体主键类型须与该生成器 {@code idType()} 一致）
+     */
     public JdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
-                   IdGenerator idGenerator,
+                   IdGenerator<?> idGenerator,
+                   RowMapperSupport rowMapperSupport,
+                   int slaveCount,
+                   SqlDialect dialect) {
+        this(namedParameterJdbcTemplate,
+                idGenerator == null ? Collections.emptyList() : Collections.singletonList(idGenerator),
+                rowMapperSupport, slaveCount, dialect);
+    }
+
+    /**
+     * 主构造：多个主键生成器，按 {@link IdGenerator#idType()} 与实体主键类型自动匹配
+     *
+     * <p>如同时注册 {@code SnowflakeIdGenerator}（Long）与 {@code UuidIdGenerator}（String），
+     * Long 主键实体用雪花、String 主键实体用 UUID；匹配不到时 fail-fast 报错。</p>
+     */
+    public JdbcDAO(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+                   List<IdGenerator<?>> idGenerators,
                    RowMapperSupport rowMapperSupport,
                    int slaveCount,
                    SqlDialect dialect) {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
-        this.idGenerator = idGenerator;
         this.rowMapperSupport = rowMapperSupport;
         this.slaveCount = slaveCount;
         this.dialect = dialect == null ? DialectRegistry.defaultDialect() : dialect;
+        this.idGenerators = idGenerators == null ? Collections.emptyList() : idGenerators;
+        this.idGeneratorByType = new HashMap<>();
+        for (IdGenerator<?> generator : this.idGenerators) {
+            if (generator != null && generator.idType() != null) {
+                idGeneratorByType.put(generator.idType(), generator);
+            }
+        }
     }
 
     // ==================== 数据源路由 ====================
@@ -101,14 +137,14 @@ public class JdbcDAO {
     // ==================== 保存 ====================
 
     /**
-     * 新增实体；id 为空时自动生成（雪花），用户也可自行指定 id
+     * 新增实体；id 为空时按实体主键类型自动生成（Long→雪花 / String→UUID），用户也可自行指定 id
      */
-    public <T extends BaseEntity> int save(T entity) {
+    public <T extends BaseEntity<?>> int save(T entity) {
         if (entity == null) {
             throw new FeatherDaoException("JdbcDAO.save: entity 不能为 null");
         }
         if (entity.getId() == null) {
-            entity.setId(idGenerator.nextId());
+            entity.setId(generateId(entity.getClass()));
         }
         InsertStatement statement = buildInsert(entity);
         setDataSourceKey(true);
@@ -124,13 +160,13 @@ public class JdbcDAO {
     /**
      * 批量新增；按"非空列集合"分组批量执行（组内共享同一 SQL）
      */
-    public <T extends BaseEntity> int[] saveBatch(List<T> entities) {
+    public <T extends BaseEntity<?>> int[] saveBatch(List<T> entities) {
         if (entities == null || entities.isEmpty()) {
             return new int[0];
         }
         for (T entity : entities) {
             if (entity.getId() == null) {
-                entity.setId(idGenerator.nextId());
+                entity.setId(generateId(entity.getClass()));
             }
         }
         // 按非空列集合分组，保证组内使用同一 SQL
@@ -168,7 +204,7 @@ public class JdbcDAO {
     /**
      * 更新实体：仅更新非 null 字段；null 字段不触碰（避免误清数据）
      */
-    public <T extends BaseEntity> int update(T entity) {
+    public <T extends BaseEntity<?>> int update(T entity) {
         if (entity == null || entity.getId() == null) {
             throw new FeatherDaoException("JdbcDAO.update: entity 或 id 不能为 null");
         }
@@ -219,7 +255,7 @@ public class JdbcDAO {
      * <p>SET 列 = COALESCE(:列, 原列)，参数为 null 时保留原值，非 null 时更新，
      * 与单条 {@link #update} 的语义完全一致，且一次 batchUpdate 完成。</p>
      */
-    public <T extends BaseEntity> int[] updateBatch(List<T> entities) {
+    public <T extends BaseEntity<?>> int[] updateBatch(List<T> entities) {
         if (entities == null || entities.isEmpty()) {
             return new int[0];
         }
@@ -280,7 +316,7 @@ public class JdbcDAO {
 
     // ==================== 删除 ====================
 
-    public <T extends BaseEntity> int deleteEntity(Class<T> clazz, T entity) {
+    public <T extends BaseEntity<?>> int deleteEntity(Class<T> clazz, T entity) {
         if (entity == null || entity.getId() == null) {
             throw new FeatherDaoException("JdbcDAO.deleteEntity: entity 或 id 不能为 null");
         }
@@ -296,11 +332,11 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseEntity> int deleteEntities(Class<T> clazz, List<T> entities) {
+    public <T extends BaseEntity<?>> int deleteEntities(Class<T> clazz, List<T> entities) {
         if (entities == null || entities.isEmpty()) {
             return 0;
         }
-        List<Long> ids = new ArrayList<>(entities.size());
+        List<Object> ids = new ArrayList<>(entities.size());
         for (T entity : entities) {
             ids.add(entity.getId());
         }
@@ -318,8 +354,11 @@ public class JdbcDAO {
 
     // ==================== 按主键查询 ====================
 
-    public <T extends BaseEntity> T findById(Class<T> clazz, Long id) {
-        if (id == null || id <= 0) {
+    /**
+     * 按主键查询；id 类型须与实体主键类型一致（BaseDAO 层提供类型安全包装）
+     */
+    public <T extends BaseEntity<?>> T findById(Class<T> clazz, Object id) {
+        if (id == null) {
             return null;
         }
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
@@ -340,7 +379,7 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseEntity> List<T> findByIds(Class<T> clazz, Collection<Long> ids) {
+    public <T extends BaseEntity<?>> List<T> findByIds(Class<T> clazz, Collection<?> ids) {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();
         }
@@ -352,7 +391,7 @@ public class JdbcDAO {
         List<T> result = new ArrayList<>(ids.size());
         setDataSourceKey(true);
         try {
-            for (List<Long> partition : partition(new ArrayList<>(ids), BATCH_SIZE)) {
+            for (List<?> partition : partition(new ArrayList<>(ids), BATCH_SIZE)) {
                 result.addAll(namedParameterJdbcTemplate.query(sql,
                         Collections.singletonMap(PK_FIELD_NAME, partition),
                         rowMapperSupport.getRowMapper(clazz)));
@@ -367,7 +406,7 @@ public class JdbcDAO {
 
     // ==================== 条件查询 ====================
 
-    public <T extends BaseEntity> T findOne(Class<T> clazz, String whereSql, SqlParam param) {
+    public <T extends BaseEntity<?>> T findOne(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         String sql = mapper.getFromSql() + whereSql;
@@ -386,7 +425,7 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseEntity> List<T> findList(Class<T> clazz, String whereSql, SqlParam param) {
+    public <T extends BaseEntity<?>> List<T> findList(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         if (whereSql == null || whereSql.trim().isEmpty()) {
             throw new FeatherDaoException("findList 需要 where 条件，请使用 QueryHelper 拼装");
@@ -404,7 +443,7 @@ public class JdbcDAO {
         }
     }
 
-    public <T extends BaseEntity> long count(Class<T> clazz, String whereSql, SqlParam param) {
+    public <T extends BaseEntity<?>> long count(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         // 剥离 order by / for update：PostgreSQL 等对 count(*) 带 order by 直接报错
@@ -423,7 +462,7 @@ public class JdbcDAO {
     /**
      * 分页查询实体
      */
-    public <T extends BaseEntity> PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param,
+    public <T extends BaseEntity<?>> PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param,
                                                                 int page, int size, boolean withTotal) {
         checkParam(param);
         int skip = (page - 1) * size;
@@ -589,7 +628,7 @@ public class JdbcDAO {
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends BaseEntity> InsertStatement buildInsert(T entity) {
+    private <T extends BaseEntity<?>> InsertStatement buildInsert(T entity) {
         Class<T> clazz = (Class<T>) entity.getClass();
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
@@ -622,7 +661,7 @@ public class JdbcDAO {
     /**
      * 按指定列集合构建参数（批量插入组内实体使用，保证与组 SQL 列一致）
      */
-    private <T extends BaseEntity> Map<String, Object> buildParams(T entity, List<String> fieldNames) {
+    private <T extends BaseEntity<?>> Map<String, Object> buildParams(T entity, List<String> fieldNames) {
         @SuppressWarnings("unchecked")
         Class<T> clazz = (Class<T>) entity.getClass();
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
@@ -643,7 +682,7 @@ public class JdbcDAO {
     /**
      * 实体的非空字段名列表（作为批量插入分组 key）
      */
-    private <T extends BaseEntity> List<String> nonNullFieldNames(T entity) {
+    private <T extends BaseEntity<?>> List<String> nonNullFieldNames(T entity) {
         @SuppressWarnings("unchecked")
         Class<T> clazz = (Class<T>) entity.getClass();
         FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
@@ -658,12 +697,41 @@ public class JdbcDAO {
         return names;
     }
 
-    private static List<List<Long>> partition(List<Long> list, int size) {
-        List<List<Long>> result = new ArrayList<>();
+    private static List<List<?>> partition(List<?> list, int size) {
+        List<List<?>> result = new ArrayList<>();
         for (int i = 0; i < list.size(); i += size) {
             result.add(list.subList(i, Math.min(i + size, list.size())));
         }
         return result;
+    }
+
+    /**
+     * 按实体主键类型选择主键生成器并生成 id
+     *
+     * @param entityClass 实体类
+     * @return 生成的 id（类型与实体主键类型一致）
+     */
+    @SuppressWarnings("unchecked")
+    private <ID> ID generateId(Class<?> entityClass) {
+        IdGenerator<?> generator = idGeneratorFor(entityClass);
+        return (ID) generator.nextId();
+    }
+
+    /**
+     * 按实体主键类型匹配生成器；匹配不到 fail-fast（提示已注册的生成器）
+     */
+    @SuppressWarnings("unchecked")
+    private IdGenerator<?> idGeneratorFor(Class<?> entityClass) {
+        ColumnMapper<BaseEntity<?>> mapper =
+                (ColumnMapper<BaseEntity<?>>) Mapper.getInstance().getColumnMapper((Class<BaseEntity<?>>) entityClass);
+        Class<?> pkType = mapper.getPkType();
+        IdGenerator<?> generator = idGeneratorByType.get(pkType);
+        if (generator == null) {
+            throw new FeatherDaoException("实体[" + entityClass.getName() + "]主键类型[" + pkType.getName()
+                    + "]没有匹配的 IdGenerator，已注册: " + idGeneratorByType.keySet()
+                    + "（可注册自定义 IdGenerator Bean 或实现 IdGenerator.idType()）");
+        }
+        return generator;
     }
 
     /**

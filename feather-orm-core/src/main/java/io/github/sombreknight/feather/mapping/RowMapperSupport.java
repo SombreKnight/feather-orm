@@ -37,7 +37,7 @@ public class RowMapperSupport {
      * 获取实体 RowMapper
      */
     @SuppressWarnings("unchecked")
-    public <T extends BaseEntity> RowMapper<T> getRowMapper(Class<T> clazz) {
+    public <T extends BaseEntity<?>> RowMapper<T> getRowMapper(Class<T> clazz) {
         return (RowMapper<T>) doMapperCache.computeIfAbsent(clazz, c -> {
             FieldHandler[] handlers = resolveHandlers((Class<T>) c);
             return factory.createRowMapper((Class<T>) c, handlers, false);
@@ -59,7 +59,7 @@ public class RowMapperSupport {
      * 解析实体字段处理器（供写库方向复用，缓存）
      */
     @SuppressWarnings("unchecked")
-    public <T extends BaseEntity> FieldHandler[] resolveHandlers(Class<T> clazz) {
+    public <T extends BaseEntity<?>> FieldHandler[] resolveHandlers(Class<T> clazz) {
         return doHandlerCache.computeIfAbsent(clazz, c -> {
             ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
             List<FieldMeta> metas = mapper.getFieldMetas();

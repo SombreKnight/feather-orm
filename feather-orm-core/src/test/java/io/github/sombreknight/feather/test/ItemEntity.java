@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  * @author sombreknight
  */
 @Table("tb_item")
-public class ItemEntity extends BaseEntity {
+public class ItemEntity extends BaseEntity<Long> {
 
     private String name;
 

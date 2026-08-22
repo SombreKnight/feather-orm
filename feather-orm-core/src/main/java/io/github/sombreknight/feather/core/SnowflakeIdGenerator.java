@@ -7,7 +7,7 @@ package io.github.sombreknight.feather.core;
  *
  * @author sombreknight
  */
-public class SnowflakeIdGenerator implements IdGenerator {
+public class SnowflakeIdGenerator implements IdGenerator<Long> {
 
     private static final long EPOCH = 1609459200000L; // 2021-01-01 00:00:00
 
@@ -36,7 +36,7 @@ public class SnowflakeIdGenerator implements IdGenerator {
     }
 
     @Override
-    public synchronized long nextId() {
+    public synchronized Long nextId() {
         long timestamp = System.currentTimeMillis();
         if (timestamp < lastTimestamp) {
             throw new IllegalStateException("系统时钟回拨，拒绝生成 id");
@@ -53,6 +53,11 @@ public class SnowflakeIdGenerator implements IdGenerator {
         return ((timestamp - EPOCH) << TIMESTAMP_SHIFT)
                 | (workerId << WORKER_ID_SHIFT)
                 | sequence;
+    }
+
+    @Override
+    public Class<Long> idType() {
+        return Long.class;
     }
 
     private long tilNextMillis(long lastTimestamp) {

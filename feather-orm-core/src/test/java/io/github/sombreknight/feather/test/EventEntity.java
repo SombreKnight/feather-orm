@@ -10,7 +10,7 @@ import io.github.sombreknight.feather.util.FeatherDate;
  * @author sombreknight
  */
 @Table("tb_event")
-public class EventEntity extends BaseEntity {
+public class EventEntity extends BaseEntity<Long> {
 
     private FeatherDate eventTime;
 
