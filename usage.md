@@ -13,7 +13,7 @@
 <dependency>
     <groupId>io.github.sombreknight</groupId>
     <artifactId>feather-orm-spring-boot-starter</artifactId>
-    <version>0.3.1</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
