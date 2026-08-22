@@ -4,6 +4,7 @@ import io.github.sombreknight.feather.dialect.SqlDialect;
 import io.github.sombreknight.feather.exception.FeatherDaoException;
 import io.github.sombreknight.feather.mapping.ColumnMapper;
 import io.github.sombreknight.feather.mapping.Mapper;
+import io.github.sombreknight.feather.util.LambdaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +19,15 @@ import java.util.List;
  *         .whereEqual("userName", "张三")
  *         .whereGte("age", 18)
  *         .orderByDesc("createTime"));
+ * </pre>
+ *
+ * <p>字段名支持两种引用方式：字符串字面量，或类型安全的 Lambda 方法引用（{@link FieldFunction}）：</p>
+ *
+ * <pre>
+ * dao.findList(dao.getQueryHelper()
+ *         .whereEqual(UserEntity::getUserName, "张三")
+ *         .whereGte(UserEntity::getAge, 18)
+ *         .orderByDesc(UserEntity::getCreateTime));
  * </pre>
  *
  * <p>字段名一律使用 Java 字段名，自动映射为数据库列名；
@@ -97,6 +107,13 @@ public class QueryHelper<T extends BaseEntity> {
     }
 
     /**
+     * 统计列（Lambda 字段引用形式）：count(*) 或 count(字段)
+     */
+    public QueryHelper<T> countField(FieldFunction<T, ?> field) {
+        return countField(LambdaUtils.resolveFieldName(field));
+    }
+
+    /**
      * 统计列：count(*) 或 count(字段)
      */
     public QueryHelper<T> countField(String... fields) {
@@ -110,12 +127,23 @@ public class QueryHelper<T extends BaseEntity> {
 
     // ==================== where 条件 ====================
 
+    /**
+     * 等值条件（Lambda 字段引用形式）
+     */
+    public QueryHelper<T> whereEqual(FieldFunction<T, ?> field, Object value) {
+        return whereEqual(LambdaUtils.resolveFieldName(field), value);
+    }
+
     public QueryHelper<T> whereEqual(String field, Object value) {
         String column = getDbFieldName(field);
         String key = newPlaceKey(column);
         whereBlock.append(KEY_WORD_AND).append(column).append(KEY_WORD_EQUAL).append(SEPARATOR_COLON).append(key);
         sqlParam.add(key, convertEnum(value));
         return this;
+    }
+
+    public <R> QueryHelper<T> whereIn(FieldFunction<T, ?> field, List<R> values) {
+        return whereIn(LambdaUtils.resolveFieldName(field), values);
     }
 
     public <R> QueryHelper<T> whereIn(String field, List<R> values) {
@@ -133,6 +161,10 @@ public class QueryHelper<T extends BaseEntity> {
         return this;
     }
 
+    public <R> QueryHelper<T> whereNotIn(FieldFunction<T, ?> field, List<R> values) {
+        return whereNotIn(LambdaUtils.resolveFieldName(field), values);
+    }
+
     public <R> QueryHelper<T> whereNotIn(String field, List<R> values) {
         if (values == null || values.isEmpty()) {
             return this;
@@ -145,20 +177,40 @@ public class QueryHelper<T extends BaseEntity> {
         return this;
     }
 
+    public QueryHelper<T> whereGt(FieldFunction<T, ?> field, Object value) {
+        return whereGt(LambdaUtils.resolveFieldName(field), value);
+    }
+
     public QueryHelper<T> whereGt(String field, Object value) {
         return range(field, value, KEY_WORD_GT);
+    }
+
+    public QueryHelper<T> whereGte(FieldFunction<T, ?> field, Object value) {
+        return whereGte(LambdaUtils.resolveFieldName(field), value);
     }
 
     public QueryHelper<T> whereGte(String field, Object value) {
         return range(field, value, KEY_WORD_GTE);
     }
 
+    public QueryHelper<T> whereLt(FieldFunction<T, ?> field, Object value) {
+        return whereLt(LambdaUtils.resolveFieldName(field), value);
+    }
+
     public QueryHelper<T> whereLt(String field, Object value) {
         return range(field, value, KEY_WORD_LT);
     }
 
+    public QueryHelper<T> whereLte(FieldFunction<T, ?> field, Object value) {
+        return whereLte(LambdaUtils.resolveFieldName(field), value);
+    }
+
     public QueryHelper<T> whereLte(String field, Object value) {
         return range(field, value, KEY_WORD_LTE);
+    }
+
+    public QueryHelper<T> whereLike(FieldFunction<T, ?> field, String keyWord) {
+        return whereLike(LambdaUtils.resolveFieldName(field), keyWord);
     }
 
     public QueryHelper<T> whereLike(String field, String keyWord) {
@@ -179,6 +231,21 @@ public class QueryHelper<T extends BaseEntity> {
 
     // ==================== 分组 / 排序 / 分页 ====================
 
+    /**
+     * 分组（Lambda 字段引用形式）
+     */
+    @SafeVarargs
+    public final QueryHelper<T> groupBy(FieldFunction<T, ?>... fields) {
+        if (fields == null || fields.length == 0) {
+            return this;
+        }
+        String[] names = new String[fields.length];
+        for (int i = 0; i < fields.length; i++) {
+            names[i] = LambdaUtils.resolveFieldName(fields[i]);
+        }
+        return groupBy(names);
+    }
+
     public QueryHelper<T> groupBy(String... fields) {
         if (fields == null || fields.length == 0) {
             return this;
@@ -191,9 +258,17 @@ public class QueryHelper<T extends BaseEntity> {
         return this;
     }
 
+    public QueryHelper<T> orderByAsc(FieldFunction<T, ?> field) {
+        return orderByAsc(LambdaUtils.resolveFieldName(field));
+    }
+
     public QueryHelper<T> orderByAsc(String field) {
         orderByFieldList.add(getDbFieldName(field) + KEY_WORD_ASC);
         return this;
+    }
+
+    public QueryHelper<T> orderByDesc(FieldFunction<T, ?> field) {
+        return orderByDesc(LambdaUtils.resolveFieldName(field));
     }
 
     public QueryHelper<T> orderByDesc(String field) {
