@@ -252,7 +252,26 @@ public class MyHandler implements TypeHandler {
 
 以面向对象方式拼装 SQL，**字段名一律用 Java 字段名**，自动映射列名。
 
-### 5.1 条件
+### 5.1 字段引用方式（推荐 Lambda）
+
+字段名支持两种引用方式，**推荐类型安全的 Lambda 方法引用**（`实体::getXxx`，编译期检查、重构自动跟随、IDE 自动补全）：
+
+```java
+qh.whereEqual(UserEntity::getUserName, "张三")   // =
+qh.whereIn(UserEntity::getId, ids)               // IN（单元素自动降级为 =）
+qh.whereGte(UserEntity::getAge, 18)              // >=
+qh.whereLike(UserEntity::getUserName, "张%")     // LIKE（通配符自行传入）
+qh.orderByDesc(UserEntity::getCreateTime)        // 排序
+qh.groupBy(UserEntity::getAge)                   // 分组
+qh.countField(UserEntity::getId)                 // count(字段)
+```
+
+- getter 在父类（如 `UserEntity::getId`）与 `is` 前缀布尔 getter（如 `Entity::getActive`）均可解析
+- 枚举参数自动转换（`CodeEnum` → 业务码，普通枚举 → name）
+- 同一字段多个条件自动生成唯一占位符（`:age_1`、`:age_2`），无冲突
+- 非法引用（非 getter 形式）立即抛 `FeatherDaoException`（fail-fast）
+
+**动态字段名**（运行时变量）场景可用字符串形式：
 
 ```java
 qh.whereEqual("userName", "张三")        // =
@@ -264,8 +283,6 @@ qh.whereLt("age", 60)                    // <
 qh.whereLte("age", 60)                   // <=
 qh.whereLike("userName", "张%")          // LIKE（通配符自行传入）
 ```
-- 枚举参数自动转换（`CodeEnum` → 业务码，普通枚举 → name）
-- 同一字段多个条件自动生成唯一占位符（`:age_1`、`:age_2`），无冲突
 
 ### 5.2 列选择 / 排序 / 分组 / 分页
 

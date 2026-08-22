@@ -14,6 +14,7 @@
 ## 特性
 
 - **继承式 CRUD**：`class UserDAO extends BaseDAO<UserEntity>` 即获得增删改查、批量、分页、单字段查询全套能力
+- **类型安全的 Lambda 字段引用**：QueryHelper 条件字段用 `UserEntity::getUserName` 方法引用，编译期检查、重构自动跟随（`FieldFunction`，经 `SerializedLambda` 解析，带缓存）
 - **驼峰 ↔ 下划线约定**：`userName` 自动映射 `user_name`，`@Column` 仅用于不规则列名
 - **类型映射注册表**（`TypeHandler` SPI）：
   - 简单类型（数值 / String / BigDecimal / byte[] / 时间）原生存取
