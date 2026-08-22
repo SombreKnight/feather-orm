@@ -52,9 +52,9 @@ public class UserController {
     @GetMapping
     public List<UserEntity> list(@RequestParam(required = false) String userName) {
         if (StringUtils.hasText(userName)) {
-            return userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", userName).orderByAsc("id"));
+            return userDAO.findList(userDAO.getQueryHelper().whereEqual(UserEntity::getUserName, userName).orderByAsc(UserEntity::getId));
         }
-        return userDAO.findList(userDAO.getQueryHelper().orderByAsc("id"));
+        return userDAO.findList(userDAO.getQueryHelper().orderByAsc(UserEntity::getId));
     }
 
     /**

@@ -125,7 +125,7 @@ public class ReflectionRowMapperCrudTest {
         assertEquals(2, page.getData().size());
 
         List<UserEntity> adults = userDAO.findList(userDAO.getQueryHelper()
-                .whereGte("age", 23).orderByDesc("age"));
+                .whereGte(UserEntity::getAge, 23).orderByDesc(UserEntity::getAge));
         assertEquals(3, adults.size());
     }
 

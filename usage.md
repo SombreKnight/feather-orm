@@ -60,7 +60,7 @@ public class UserDAO extends BaseDAO<UserEntity> {
 // 使用
 userDAO.saveEntity(user);
 UserEntity user = userDAO.findById(1L);
-List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", "张三"));
+List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual(UserEntity::getUserName, "张三"));
 ```
 
 > **注意**：DAO 必须标注 `@Repository`（或 `@Component`），否则不会被 Spring 扫描为 Bean。
@@ -250,53 +250,51 @@ public class MyHandler implements TypeHandler {
 
 ## 5. QueryHelper 查询辅助器
 
-以面向对象方式拼装 SQL，**字段名一律用 Java 字段名**，自动映射列名。
+以面向对象方式拼装 SQL，**字段名一律用类型安全的 Lambda 方法引用**（`实体::getXxx`），
+自动映射为数据库列名；编译期检查、重构自动跟随、IDE 自动补全。
 
-### 5.1 字段引用方式（推荐 Lambda）
-
-字段名支持两种引用方式，**推荐类型安全的 Lambda 方法引用**（`实体::getXxx`，编译期检查、重构自动跟随、IDE 自动补全）：
+### 5.1 条件
 
 ```java
-qh.whereEqual(UserEntity::getUserName, "张三")   // =
-qh.whereIn(UserEntity::getId, ids)               // IN（单元素自动降级为 =）
-qh.whereGte(UserEntity::getAge, 18)              // >=
-qh.whereLike(UserEntity::getUserName, "张%")     // LIKE（通配符自行传入）
-qh.orderByDesc(UserEntity::getCreateTime)        // 排序
-qh.groupBy(UserEntity::getAge)                   // 分组
-qh.countField(UserEntity::getId)                 // count(字段)
+qh.whereEqual(UserEntity::getUserName, "张三")    // =
+qh.whereIn(UserEntity::getId, ids)                // IN（单元素自动降级为 =）
+qh.whereNotIn(UserEntity::getId, ids)             // NOT IN
+qh.whereGt(UserEntity::getAge, 18)                // >
+qh.whereGte(UserEntity::getAge, 18)               // >=
+qh.whereLt(UserEntity::getAge, 60)                // <
+qh.whereLte(UserEntity::getAge, 60)               // <=
+```
+
+**模糊查询**：
+
+```java
+qh.whereLike(UserEntity::getUserName, "张%")       // 原生 LIKE，通配符（% _）自行传入
+qh.whereContains(UserEntity::getUserName, "张")    // LIKE '%张%'，自动转义通配符，可直接传用户输入
+qh.whereStartsWith(UserEntity::getUserName, "张")  // LIKE '张%'
+qh.whereEndsWith(UserEntity::getUserName, "三")    // LIKE '%三'
 ```
 
 - getter 在父类（如 `UserEntity::getId`）与 `is` 前缀布尔 getter（如 `Entity::getActive`）均可解析
 - 枚举参数自动转换（`CodeEnum` → 业务码，普通枚举 → name）
 - 同一字段多个条件自动生成唯一占位符（`:age_1`、`:age_2`），无冲突
 - 非法引用（非 getter 形式）立即抛 `FeatherDaoException`（fail-fast）
-
-**动态字段名**（运行时变量）场景可用字符串形式：
-
-```java
-qh.whereEqual("userName", "张三")        // =
-qh.whereIn("id", ids)                    // IN（单元素自动降级为 =）
-qh.whereNotIn("id", ids)                 // NOT IN
-qh.whereGt("age", 18)                    // >
-qh.whereGte("age", 18)                   // >=
-qh.whereLt("age", 60)                    // <
-qh.whereLte("age", 60)                   // <=
-qh.whereLike("userName", "张%")          // LIKE（通配符自行传入）
-```
+- `whereContains / whereStartsWith / whereEndsWith` 自动转义 `% _ \` 并拼 `ESCAPE '\'` 子句（跨库一致），防止通配符注入
+- **动态字段名**（运行时变量）场景请使用 `JdbcDAO` 原生 SQL
 
 ### 5.2 列选择 / 排序 / 分组 / 分页
 
 ```java
-qh.selectFields("userName", "age")               // 指定查询列
-qh.selectFields("userName as u")                 // 支持别名
-qh.countField() / qh.countField("id")            // count(*)/count(id)
-qh.groupBy("age")
-qh.orderByAsc("age") / qh.orderByDesc("id")
-qh.limit(10) / qh.limitOne()                     // 普通查询限条数
-qh.limit(page, pageSize)                         // 分页（配合 findPageByPageNum）
-qh.withTotal(true/false)                         // 分页是否统计总数
-qh.forceIndex("idx_name")                        // 强制索引（仅 MySQL 系）
-qh.forUpdate()                                   // 悲观锁（SQLite 忽略；SQL Server 抛异常）
+qh.selectFields("userName", "age")                // 指定查询列（唯一字符串入口，支持别名）
+qh.selectFields("userName as u")                  // 支持别名
+qh.countField()                                    // count(*)
+qh.countField(UserEntity::getId)                   // count(id)
+qh.groupBy(UserEntity::getAge, UserEntity::getStatus)
+qh.orderByAsc(UserEntity::getAge) / qh.orderByDesc(UserEntity::getId)
+qh.limit(10) / qh.limitOne()                       // 普通查询限条数
+qh.limit(page, pageSize)                           // 分页（配合 findPageByPageNum）
+qh.withTotal(true/false)                           // 分页是否统计总数
+qh.forceIndex("idx_name")                          // 强制索引（仅 MySQL 系）
+qh.forUpdate()                                     // 悲观锁（SQLite 忽略；SQL Server 抛异常）
 ```
 
 ### 5.3 安全契约（fail-fast）

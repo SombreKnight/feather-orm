@@ -109,9 +109,9 @@ List<UserEntity> list = userDAO.findByIds(ids);
 
 // 条件查询（面向对象拼 SQL）
 List<UserEntity> adults = userDAO.findList(userDAO.getQueryHelper()
-        .whereEqual("userName", "张三")
-        .whereGte("age", 18)
-        .orderByDesc("age"));
+        .whereEqual(UserEntity::getUserName, "张三")
+        .whereGte(UserEntity::getAge, 18)
+        .orderByDesc(UserEntity::getAge));
 
 // 分页
 PagingResult<UserEntity> page = userDAO.findPageByPageNum(
@@ -119,7 +119,7 @@ PagingResult<UserEntity> page = userDAO.findPageByPageNum(
 
 // 单字段
 String name = userDAO.findField(String.class,
-        userDAO.getQueryHelper().selectFields("userName").whereEqual("id", id).limitOne());
+        userDAO.getQueryHelper().selectFields("userName").whereEqual(UserEntity::getId, id).limitOne());
 
 // 更新（仅更新非 null 字段，null 字段不触碰）
 UserEntity update = new UserEntity();

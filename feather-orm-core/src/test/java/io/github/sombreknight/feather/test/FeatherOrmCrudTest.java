@@ -128,39 +128,39 @@ public class FeatherOrmCrudTest {
         userDAO.saveEntity(u2);
 
         // whereEqual
-        List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", "王五"));
+        List<UserEntity> list = userDAO.findList(userDAO.getQueryHelper().whereEqual(UserEntity::getUserName, "王五"));
         assertEquals(1, list.size());
         assertEquals("王五", list.get(0).getUserName());
 
         // 条件组合 + 排序
         list = userDAO.findList(userDAO.getQueryHelper()
-                .whereGte("age", 18)
-                .orderByDesc("age"));
+                .whereGte(UserEntity::getAge, 18)
+                .orderByDesc(UserEntity::getAge));
         assertEquals(2, list.size());
         assertEquals("王五", list.get(0).getUserName()); // age 30 排前
 
         // count
-        long count = userDAO.count(userDAO.getQueryHelper().whereEqual("type", TypeEnum.TEST1));
+        long count = userDAO.count(userDAO.getQueryHelper().whereEqual(UserEntity::getType, TypeEnum.TEST1));
         assertEquals(1, count);
 
         // findOne
-        UserEntity one = userDAO.findOne(userDAO.getQueryHelper().whereEqual("id", u2.getId()));
+        UserEntity one = userDAO.findOne(userDAO.getQueryHelper().whereEqual(UserEntity::getId, u2.getId()));
         assertNotNull(one);
         assertEquals("赵六", one.getUserName());
 
         // findField（单字段）
         String name = userDAO.findField(String.class,
-                userDAO.getQueryHelper().selectFields("userName").whereEqual("id", u1.getId()).limitOne());
+                userDAO.getQueryHelper().selectFields("userName").whereEqual(UserEntity::getId, u1.getId()).limitOne());
         assertEquals("王五", name);
 
         // findFieldList
         List<String> names = userDAO.findFieldList(String.class,
-                userDAO.getQueryHelper().selectFields("userName").orderByAsc("age"));
+                userDAO.getQueryHelper().selectFields("userName").orderByAsc(UserEntity::getAge));
         assertEquals(2, names.size());
         assertEquals("赵六", names.get(0)); // age 20 排前
 
         // limit
-        list = userDAO.findList(userDAO.getQueryHelper().orderByAsc("age").limit(1));
+        list = userDAO.findList(userDAO.getQueryHelper().orderByAsc(UserEntity::getAge).limit(1));
         assertEquals(1, list.size());
         assertEquals("赵六", list.get(0).getUserName());
     }
@@ -229,10 +229,10 @@ public class FeatherOrmCrudTest {
 
     @Test
     public void t09_strictFieldCheck() {
-        // 不存在的字段名应 fail-fast 抛异常，而不是拼进 SQL
+        // 不存在的字段名应 fail-fast 抛异常，而不是拼进 SQL（字符串入口仅剩 selectFields）
         boolean thrown = false;
         try {
-            userDAO.findList(userDAO.getQueryHelper().whereEqual("notExistField", "x"));
+            userDAO.findList(userDAO.getQueryHelper().selectFields("notExistField"));
         } catch (Exception e) {
             thrown = true;
         }

@@ -2,7 +2,6 @@ package io.github.sombreknight.feather.test;
 
 import io.github.sombreknight.feather.annotation.Table;
 import io.github.sombreknight.feather.core.BaseEntity;
-import io.github.sombreknight.feather.core.FieldFunction;
 import io.github.sombreknight.feather.core.QueryHelper;
 import io.github.sombreknight.feather.dialect.DialectRegistry;
 import io.github.sombreknight.feather.dialect.MySqlDialect;
@@ -146,16 +145,6 @@ public class QueryHelperLambdaTest {
     }
 
     @Test
-    public void mixedLambdaAndString() {
-        // 动态字段名场景仍可用字符串 API，与 Lambda 混用
-        QueryHelper<UserEntity> qh = new QueryHelper<>(UserEntity.class);
-        String dynamicField = "status";
-        String sql = qh.whereEqual(dynamicField, 1).whereGte(UserEntity::getAge, 18).getWhereSql();
-        assertTrue(sql.contains("status = :status_1"));
-        assertTrue(sql.contains("age >= :age_2"));
-    }
-
-    @Test
     public void nonGetterReferenceThrows() {
         // 静态方法引用无法推导字段名，fail-fast
         QueryHelper<LambdaTestEntity> qh = new QueryHelper<>(LambdaTestEntity.class);
@@ -164,9 +153,8 @@ public class QueryHelperLambdaTest {
 
     @Test
     public void nullReferenceThrows() {
-        // null 在重载下编译歧义，显式强转后进入 FieldFunction 重载
+        // 唯一重载下 null 不再有编译歧义，直接进入 FieldFunction 解析并 fail-fast
         QueryHelper<LambdaTestEntity> qh = new QueryHelper<>(LambdaTestEntity.class);
-        assertThrows(FeatherDaoException.class,
-                () -> qh.whereEqual((FieldFunction<LambdaTestEntity, ?>) null, "x"));
+        assertThrows(FeatherDaoException.class, () -> qh.whereEqual(null, "x"));
     }
 }

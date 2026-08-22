@@ -139,16 +139,16 @@ public class PostgresDialectIntegrationTest {
         userDAO.saveEntity(newUser("b3", 38));
 
         List<UserEntity> adults = userDAO.findList(userDAO.getQueryHelper()
-                .whereGte("age", 28).orderByDesc("age"));
+                .whereGte(UserEntity::getAge, 28).orderByDesc(UserEntity::getAge));
         assertEquals(2, adults.size());
         assertEquals(38, adults.get(0).getAge());
 
-        long count = userDAO.count(userDAO.getQueryHelper().whereLike("userName", "a%"));
+        long count = userDAO.count(userDAO.getQueryHelper().whereLike(UserEntity::getUserName, "a%"));
         assertEquals(2, count);
 
         // whereIn 与单元素降级
         List<UserEntity> byIds = userDAO.findList(userDAO.getQueryHelper()
-                .whereIn("userName", Arrays.asList("a1", "b3")));
+                .whereIn(UserEntity::getUserName, Arrays.asList("a1", "b3")));
         assertEquals(2, byIds.size());
 
         // DTO 查询
@@ -165,7 +165,7 @@ public class PostgresDialectIntegrationTest {
             userDAO.saveEntity(newUser("u" + i, i));
         }
         PagingResult<UserEntity> page = userDAO.findPageByPageNum(
-                userDAO.getQueryHelper().orderByAsc("age").withTotal(true).limit(1, 2));
+                userDAO.getQueryHelper().orderByAsc(UserEntity::getAge).withTotal(true).limit(1, 2));
         assertEquals(3, page.getPageInfo().getTotal());
         assertEquals(2, page.getData().size());
     }

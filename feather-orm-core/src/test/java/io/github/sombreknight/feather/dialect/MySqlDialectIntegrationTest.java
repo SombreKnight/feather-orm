@@ -135,18 +135,18 @@ public class MySqlDialectIntegrationTest {
         userDAO.saveEntity(newUser("b3", 38));
 
         List<UserEntity> adults = userDAO.findList(userDAO.getQueryHelper()
-                .whereGte("age", 28).orderByDesc("age"));
+                .whereGte(UserEntity::getAge, 28).orderByDesc(UserEntity::getAge));
         assertEquals(2, adults.size());
         assertEquals(38, adults.get(0).getAge());
 
         // FORCE INDEX（MySQL 专有能力）
         List<UserEntity> indexed = userDAO.findList(userDAO.getQueryHelper()
-                .forceIndex("idx_user_name").whereEqual("userName", "a1"));
+                .forceIndex("idx_user_name").whereEqual(UserEntity::getUserName, "a1"));
         assertEquals(1, indexed.size());
 
         // whereIn
         List<UserEntity> byIds = userDAO.findList(userDAO.getQueryHelper()
-                .whereIn("userName", Arrays.asList("a1", "b3")));
+                .whereIn(UserEntity::getUserName, Arrays.asList("a1", "b3")));
         assertEquals(2, byIds.size());
 
         // DTO 查询
@@ -162,7 +162,7 @@ public class MySqlDialectIntegrationTest {
             userDAO.saveEntity(newUser("u" + i, i));
         }
         PagingResult<UserEntity> page = userDAO.findPageByPageNum(
-                userDAO.getQueryHelper().orderByAsc("age").withTotal(true).limit(1, 2));
+                userDAO.getQueryHelper().orderByAsc(UserEntity::getAge).withTotal(true).limit(1, 2));
         assertEquals(3, page.getPageInfo().getTotal());
         assertEquals(2, page.getData().size());
     }

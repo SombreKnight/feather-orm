@@ -42,10 +42,20 @@ dao.findList(dao.getQueryHelper()
 - ❌ GraalVM native-image 适配（SerializedLambda 反射在 native 下有已知限制，记录不处理）
 
 ### 字符串 API 的定位（已确认：无存量代码，不为兼容保留）
-框架当前无存量使用方，`FieldFunction` 为主 API。字符串版**仅保留 Lambda 表达不了的两类能力**：
-1. 嵌套 JSON 路径：`whereEqual("extInfo.name", ...)`
-2. 动态/运行时字段名：变量形式拼条件
-其余字符串方法保留但文档定位为补充入口，不标记 deprecated。
+框架当前无存量使用方，`FieldFunction` 为主 API。字符串版**仅保留 selectFields 一个入口**
+（alias 能力：`"userName as u"`，Lambda 无法表达）；其余字符串方法（where/orderBy/groupBy/countField）
+已全部移除。动态字段名（运行时变量）场景使用 `JdbcDAO` 原生 SQL。
+
+### 第二轮迭代（已实现）：便捷模糊方法 + 去除字符串重载
+1. **删除全部字符串重载**（whereEqual/In/NotIn/Gt/Gte/Lt/Lte/Like、orderByAsc/Desc、groupBy、countField），
+   唯一保留字符串入口：`selectFields`（alias 能力）；`countField()` 改为无参 + `countField(FieldFunction)`
+2. **新增三个安全的便捷模糊方法**（自动转义 + `ESCAPE '\'` 子句，跨库一致，防通配符注入）：
+   - `whereContains(field, kw)` → `LIKE '%kw%'`
+   - `whereStartsWith(field, kw)` → `LIKE 'kw%'`
+   - `whereEndsWith(field, kw)` → `LIKE '%kw'`
+   - `whereLike` 保留为原生入口（通配符由调用方自行控制，不转义不拼 ESCAPE）
+3. `SqlDialect` 新增默认方法 `likeEscapeClause()` → ` escape '\\'`（标准 SQL，主流库均支持）
+4. **额外收益**：删除字符串重载后 `whereEqual(null, v)` 编译歧义消失（唯一重载直接 fail-fast）
 
 ## 3. API 设计
 
@@ -71,15 +81,15 @@ public interface FieldFunction<T, R> extends Function<T, R>, Serializable {
 |---|---|
 | 字符串 API（补充入口） | 新增 FieldFunction 重载 |
 |---|---|
-| `whereEqual(String, Object)` | `whereEqual(FieldFunction<T,?>, Object)` |
-| `whereGt / whereGte / whereLt / whereLte(String, Object)` | 同名的 4 个 FieldFunction 重载 |
-| `whereLike(String, String)` | `whereLike(FieldFunction<T,?>, String)` |
-| `whereIn(String, List<R>)` | `whereIn(FieldFunction<T,?>, List<R>)` |
-| `whereNotIn(String, List<R>)` | `whereNotIn(FieldFunction<T,?>, List<R>)` |
-| `orderByAsc / orderByDesc(String)` | 同名的 2 个 FieldFunction 重载 |
-| `groupBy(String...)` | `groupBy(FieldFunction<T,?>...)`（@SafeVarargs） |
-| `countField(String...)` | `countField(FieldFunction<T,?>)` |
-| `selectFields(String...)` | ❌ 不做（alias 刚需，字符串保留） |
+| `selectFields(String...)`（唯一保留：alias 能力） | — |
+| — | `whereEqual(FieldFunction<T,?>, Object)` |
+| — | `whereGt / whereGte / whereLt / whereLte(FieldFunction<T,?>, Object)` |
+| — | `whereLike(FieldFunction<T,?>, String)`（原生，通配符自传） |
+| — | `whereContains / whereStartsWith / whereEndsWith(FieldFunction<T,?>, String)`（自动转义+ESCAPE） |
+| — | `whereIn(FieldFunction<T,?>, List<R>)` / `whereNotIn(FieldFunction<T,?>, List<R>)` |
+| — | `orderByAsc / orderByDesc(FieldFunction<T,?>)` |
+| — | `groupBy(FieldFunction<T,?>...)`（@SafeVarargs） |
+| — | `countField()` / `countField(FieldFunction<T,?>)` |
 
 共 **13 个新增重载** + 1 个新接口。
 
@@ -203,8 +213,10 @@ FieldFunction 实例（UserEntity::getUserName）
 | # | 决策 | 结论 |
 |---|---|---|
 | 1 | 接口命名 | **`FieldFunction`**（自解释，用户确认） |
-| 2 | 向后兼容 | **不保留兼容负担**；字符串 API 仅按能力保留（嵌套路径/动态字段名），主 API 为 FieldFunction |
+| 2 | 向后兼容 | **不保留兼容负担**；字符串 API 仅保留 selectFields（alias 能力），其余全部移除 |
 | 3 | groupBy 可变参数 | 采用 `groupBy(FieldFunction...)` + `@SafeVarargs` |
-| 4 | countField | 纳入第一版 |
-| 5 | 提交粒度 | 拆两次 commit：feat（接口+工具+QueryHelper+测试）/ docs（usage+README） |
-| 6 | issue #4 | 完成后贴 spec 链接并关闭 |
+| 4 | countField | 纳入：`countField()` 无参 + `countField(FieldFunction)` |
+| 5 | 提交粒度 | 已按 feat（Lambda 特性）/ docs 分次提交 |
+| 6 | issue #4 | 已关闭（实现说明 + spec 链接） |
+| 7 | 便捷模糊方法 | **第二轮新增**：`whereContains / whereStartsWith / whereEndsWith`（自动转义 + ESCAPE），`whereLike` 保留为原生入口 |
+| 8 | 字符串重载 | **第二轮移除**：where 系/orderBy/groupBy/countField 字符串版全删，`whereEqual(null, v)` 编译歧义随之消失 |

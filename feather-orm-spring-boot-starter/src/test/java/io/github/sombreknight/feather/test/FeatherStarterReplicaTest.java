@@ -89,12 +89,12 @@ public class FeatherStarterReplicaTest {
 
         // 普通查询走从库（从库无数据，模拟复制延迟）→ 空；强制主库 → 能读到
         List<AccountEntity> fromSlave = accountDAO.findList(accountDAO.getQueryHelper()
-                .whereEqual("userName", "主从测试"));
+                .whereEqual(AccountEntity::getUserName, "主从测试"));
         assertTrue(fromSlave.isEmpty(), "从库未复制数据时普通查询应为空");
 
         accountDAO.forceMaster();
         List<AccountEntity> fromMaster = accountDAO.findList(accountDAO.getQueryHelper()
-                .whereEqual("userName", "主从测试"));
+                .whereEqual(AccountEntity::getUserName, "主从测试"));
         assertEquals(1, fromMaster.size());
     }
 
@@ -108,7 +108,7 @@ public class FeatherStarterReplicaTest {
 
             // 事务内查询必须复用主库连接（读己之写）
             List<AccountEntity> list = accountDAO.findList(accountDAO.getQueryHelper()
-                    .whereEqual("userName", "事务主从"));
+                    .whereEqual(AccountEntity::getUserName, "事务主从"));
             assertEquals(1, list.size());
         });
     }
@@ -121,6 +121,6 @@ public class FeatherStarterReplicaTest {
             jdbcDAO.save(account);
             throw new RuntimeException("回滚");
         }));
-        assertEquals(0, accountDAO.count(accountDAO.getQueryHelper().whereEqual("userName", "回滚主从")));
+        assertEquals(0, accountDAO.count(accountDAO.getQueryHelper().whereEqual(AccountEntity::getUserName, "回滚主从")));
     }
 }

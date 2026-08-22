@@ -78,7 +78,7 @@ public class FeatherStarterTest {
         assertEquals(AccountStatus.NORMAL, found.getStatus());
 
         // 查询条件（枚举参数自动转换）
-        AccountEntity byName = accountDAO.findOne(accountDAO.getQueryHelper().whereEqual("userName", "张三"));
+        AccountEntity byName = accountDAO.findOne(accountDAO.getQueryHelper().whereEqual(AccountEntity::getUserName, "张三"));
         assertNotNull(byName);
         assertEquals(account.getId(), byName.getId());
 
@@ -107,7 +107,7 @@ public class FeatherStarterTest {
             throw new RuntimeException("触发回滚");
         }));
 
-        long count = accountDAO.count(accountDAO.getQueryHelper().whereEqual("userName", "回滚用户"));
+        long count = accountDAO.count(accountDAO.getQueryHelper().whereEqual(AccountEntity::getUserName, "回滚用户"));
         assertEquals(0, count, "事务回滚后数据不应存在");
     }
 }

@@ -42,6 +42,15 @@ public interface SqlDialect {
     String limitClause(int limit);
 
     /**
+     * LIKE 转义子句：配合便捷模糊方法（whereContains / whereStartsWith / whereEndsWith）的
+     * 通配符自动转义。默认 {@code escape '\'}（标准 SQL，MySQL / PostgreSQL / SQL Server /
+     * Oracle / H2 / SQLite 等主流数据库均支持）。
+     */
+    default String likeEscapeClause() {
+        return " escape '\\'";
+    }
+
+    /**
      * 分页片段（skip = 偏移量，size = 每页条数），用于 findPageByPageNum 等
      */
     String limitClause(int skip, int size);

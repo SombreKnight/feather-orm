@@ -41,7 +41,7 @@ public class MapperDialectTest {
     public void queryHelperUsesCurrentDialect() {
         Mapper.getInstance().setDialect(new PostgresDialect());
         QueryHelper<UserEntity> qh = new QueryHelper<>(UserEntity.class);
-        String sql = qh.whereEqual("userName", "张三").limit(2, 10).getSql();
+        String sql = qh.whereEqual(UserEntity::getUserName, "张三").limit(2, 10).getSql();
         // PG 方言：表名不引用 + LIMIT size OFFSET skip
         assertTrue(sql.contains("from tb_user jdbc_x"), sql);
         assertTrue(sql.contains("limit 10 offset 2"), sql);

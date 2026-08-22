@@ -16,22 +16,16 @@ import java.util.List;
  *
  * <pre>
  * dao.findList(dao.getQueryHelper()
- *         .whereEqual("userName", "张三")
- *         .whereGte("age", 18)
- *         .orderByDesc("createTime"));
- * </pre>
- *
- * <p>字段名支持两种引用方式：字符串字面量，或类型安全的 Lambda 方法引用（{@link FieldFunction}）：</p>
- *
- * <pre>
- * dao.findList(dao.getQueryHelper()
  *         .whereEqual(UserEntity::getUserName, "张三")
  *         .whereGte(UserEntity::getAge, 18)
+ *         .whereContains(UserEntity::getUserName, "张")
  *         .orderByDesc(UserEntity::getCreateTime));
  * </pre>
  *
- * <p>字段名一律使用 Java 字段名，自动映射为数据库列名；
- * 找不到映射时立即抛出异常（fail-fast，杜绝 SQL 注入）。</p>
+ * <p>字段名一律使用类型安全的 Lambda 方法引用（{@link FieldFunction}，如 {@code UserEntity::getUserName}），
+ * 编译期检查、重构自动跟随；自动映射为数据库列名，找不到映射时立即抛出异常（fail-fast，杜绝 SQL 注入）。</p>
+ *
+ * <p>动态字段名（运行时变量）场景请使用 {@code JdbcDAO} 原生 SQL。</p>
  *
  * @param <T> 实体类型
  * @author sombreknight
@@ -107,53 +101,45 @@ public class QueryHelper<T extends BaseEntity> {
     }
 
     /**
-     * 统计列（Lambda 字段引用形式）：count(*) 或 count(字段)
+     * 统计列：count(*)
      */
-    public QueryHelper<T> countField(FieldFunction<T, ?> field) {
-        return countField(LambdaUtils.resolveFieldName(field));
+    public QueryHelper<T> countField() {
+        selectFieldList.add("count(*)");
+        return this;
     }
 
     /**
-     * 统计列：count(*) 或 count(字段)
+     * 统计列：count(字段)
      */
-    public QueryHelper<T> countField(String... fields) {
-        String expression = "*";
-        if (fields != null && fields.length > 0 && fields[0] != null && !fields[0].trim().isEmpty()) {
-            expression = getDbFieldName(fields[0].trim());
-        }
-        selectFieldList.add("count(" + expression + ")");
+    public QueryHelper<T> countField(FieldFunction<T, ?> field) {
+        selectFieldList.add("count(" + getDbFieldName(LambdaUtils.resolveFieldName(field)) + ")");
         return this;
     }
 
     // ==================== where 条件 ====================
 
     /**
-     * 等值条件（Lambda 字段引用形式）
+     * 等值条件：{@code whereEqual(UserEntity::getUserName, "张三")} → {@code user_name = :user_name_1}
      */
     public QueryHelper<T> whereEqual(FieldFunction<T, ?> field, Object value) {
-        return whereEqual(LambdaUtils.resolveFieldName(field), value);
-    }
-
-    public QueryHelper<T> whereEqual(String field, Object value) {
-        String column = getDbFieldName(field);
+        String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
         String key = newPlaceKey(column);
         whereBlock.append(KEY_WORD_AND).append(column).append(KEY_WORD_EQUAL).append(SEPARATOR_COLON).append(key);
         sqlParam.add(key, convertEnum(value));
         return this;
     }
 
+    /**
+     * IN 条件：{@code whereIn(UserEntity::getId, idList)}；单元素自动降级为等值查询，空集合忽略
+     */
     public <R> QueryHelper<T> whereIn(FieldFunction<T, ?> field, List<R> values) {
-        return whereIn(LambdaUtils.resolveFieldName(field), values);
-    }
-
-    public <R> QueryHelper<T> whereIn(String field, List<R> values) {
         if (values == null || values.isEmpty()) {
             return this;
         }
         if (values.size() == 1) {
             return whereEqual(field, values.get(0));
         }
-        String column = getDbFieldName(field);
+        String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
         String key = newPlaceKey(column);
         whereBlock.append(KEY_WORD_AND).append(column).append(KEY_WORD_IN)
                 .append(SEPARATOR_LEFT).append(SEPARATOR_COLON).append(key).append(SEPARATOR_RIGHT);
@@ -161,15 +147,14 @@ public class QueryHelper<T extends BaseEntity> {
         return this;
     }
 
+    /**
+     * NOT IN 条件；空集合忽略
+     */
     public <R> QueryHelper<T> whereNotIn(FieldFunction<T, ?> field, List<R> values) {
-        return whereNotIn(LambdaUtils.resolveFieldName(field), values);
-    }
-
-    public <R> QueryHelper<T> whereNotIn(String field, List<R> values) {
         if (values == null || values.isEmpty()) {
             return this;
         }
-        String column = getDbFieldName(field);
+        String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
         String key = newPlaceKey(column);
         whereBlock.append(KEY_WORD_AND).append(column).append(KEY_WORD_NOT_IN)
                 .append(SEPARATOR_LEFT).append(SEPARATOR_COLON).append(key).append(SEPARATOR_RIGHT);
@@ -177,102 +162,130 @@ public class QueryHelper<T extends BaseEntity> {
         return this;
     }
 
+    /**
+     * 大于条件：{@code whereGt(UserEntity::getAge, 18)}
+     */
     public QueryHelper<T> whereGt(FieldFunction<T, ?> field, Object value) {
-        return whereGt(LambdaUtils.resolveFieldName(field), value);
-    }
-
-    public QueryHelper<T> whereGt(String field, Object value) {
         return range(field, value, KEY_WORD_GT);
     }
 
+    /**
+     * 大于等于条件
+     */
     public QueryHelper<T> whereGte(FieldFunction<T, ?> field, Object value) {
-        return whereGte(LambdaUtils.resolveFieldName(field), value);
-    }
-
-    public QueryHelper<T> whereGte(String field, Object value) {
         return range(field, value, KEY_WORD_GTE);
     }
 
+    /**
+     * 小于条件
+     */
     public QueryHelper<T> whereLt(FieldFunction<T, ?> field, Object value) {
-        return whereLt(LambdaUtils.resolveFieldName(field), value);
-    }
-
-    public QueryHelper<T> whereLt(String field, Object value) {
         return range(field, value, KEY_WORD_LT);
     }
 
+    /**
+     * 小于等于条件
+     */
     public QueryHelper<T> whereLte(FieldFunction<T, ?> field, Object value) {
-        return whereLte(LambdaUtils.resolveFieldName(field), value);
-    }
-
-    public QueryHelper<T> whereLte(String field, Object value) {
         return range(field, value, KEY_WORD_LTE);
     }
 
+    /**
+     * 原生 LIKE：通配符（{@code %} / {@code _}）由调用方自行传入，不转义。
+     * 例如 {@code whereLike(UserEntity::getUserName, "张%")}
+     */
     public QueryHelper<T> whereLike(FieldFunction<T, ?> field, String keyWord) {
-        return whereLike(LambdaUtils.resolveFieldName(field), keyWord);
-    }
-
-    public QueryHelper<T> whereLike(String field, String keyWord) {
-        String column = getDbFieldName(field);
+        String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
         String key = newPlaceKey(column);
         whereBlock.append(KEY_WORD_AND).append(column).append(KEY_WORD_LIKE).append(SEPARATOR_COLON).append(key);
         sqlParam.add(key, keyWord);
         return this;
     }
 
-    private QueryHelper<T> range(String field, Object value, String operator) {
-        String column = getDbFieldName(field);
+    /**
+     * 包含模糊：{@code whereContains(UserEntity::getUserName, "张")} → {@code LIKE '%张%'}。
+     * 自动转义通配符（{@code % _ \}），可直接传用户输入，安全。
+     */
+    public QueryHelper<T> whereContains(FieldFunction<T, ?> field, String keyword) {
+        return likeWithEscape(field, keyword == null ? null : "%" + escapeLike(keyword) + "%");
+    }
+
+    /**
+     * 前缀模糊：{@code whereStartsWith(UserEntity::getUserName, "张")} → {@code LIKE '张%'}。
+     * 自动转义通配符，可直接传用户输入，安全。
+     */
+    public QueryHelper<T> whereStartsWith(FieldFunction<T, ?> field, String prefix) {
+        return likeWithEscape(field, prefix == null ? null : escapeLike(prefix) + "%");
+    }
+
+    /**
+     * 后缀模糊：{@code whereEndsWith(UserEntity::getUserName, "张")} → {@code LIKE '%张'}。
+     * 自动转义通配符，可直接传用户输入，安全。
+     */
+    public QueryHelper<T> whereEndsWith(FieldFunction<T, ?> field, String suffix) {
+        return likeWithEscape(field, suffix == null ? null : "%" + escapeLike(suffix));
+    }
+
+    private QueryHelper<T> range(FieldFunction<T, ?> field, Object value, String operator) {
+        String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
         String key = newPlaceKey(column);
         whereBlock.append(KEY_WORD_AND).append(column).append(operator).append(SEPARATOR_COLON).append(key);
         sqlParam.add(key, convertEnum(value));
         return this;
     }
 
+    private QueryHelper<T> likeWithEscape(FieldFunction<T, ?> field, String pattern) {
+        String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
+        String key = newPlaceKey(column);
+        whereBlock.append(KEY_WORD_AND).append(column).append(KEY_WORD_LIKE)
+                .append(SEPARATOR_COLON).append(key).append(dialect.likeEscapeClause());
+        sqlParam.add(key, pattern);
+        return this;
+    }
+
+    /**
+     * 转义 LIKE 通配符（% _ \），配合 ESCAPE '\' 子句使用；null 原样返回
+     */
+    private static String escapeLike(String input) {
+        if (input == null) {
+            return null;
+        }
+        return input.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+    }
+
     // ==================== 分组 / 排序 / 分页 ====================
 
     /**
-     * 分组（Lambda 字段引用形式）
+     * 分组：{@code groupBy(UserEntity::getAge, UserEntity::getStatus)}
      */
     @SafeVarargs
     public final QueryHelper<T> groupBy(FieldFunction<T, ?>... fields) {
         if (fields == null || fields.length == 0) {
             return this;
         }
-        String[] names = new String[fields.length];
-        for (int i = 0; i < fields.length; i++) {
-            names[i] = LambdaUtils.resolveFieldName(fields[i]);
-        }
-        return groupBy(names);
-    }
-
-    public QueryHelper<T> groupBy(String... fields) {
-        if (fields == null || fields.length == 0) {
-            return this;
-        }
         List<String> columns = new ArrayList<>(fields.length);
-        for (String field : fields) {
-            columns.add(getDbFieldName(field));
+        for (FieldFunction<T, ?> field : fields) {
+            columns.add(getDbFieldName(LambdaUtils.resolveFieldName(field)));
         }
         groupByBlock.append(KEY_WORD_GROUP_BY).append(String.join(SEPARATOR_COMMA, columns));
         return this;
     }
 
+    /**
+     * 升序排序
+     */
     public QueryHelper<T> orderByAsc(FieldFunction<T, ?> field) {
-        return orderByAsc(LambdaUtils.resolveFieldName(field));
-    }
-
-    public QueryHelper<T> orderByAsc(String field) {
-        orderByFieldList.add(getDbFieldName(field) + KEY_WORD_ASC);
+        orderByFieldList.add(getDbFieldName(LambdaUtils.resolveFieldName(field)) + KEY_WORD_ASC);
         return this;
     }
 
+    /**
+     * 降序排序
+     */
     public QueryHelper<T> orderByDesc(FieldFunction<T, ?> field) {
-        return orderByDesc(LambdaUtils.resolveFieldName(field));
-    }
-
-    public QueryHelper<T> orderByDesc(String field) {
-        orderByFieldList.add(getDbFieldName(field) + KEY_WORD_DESC);
+        orderByFieldList.add(getDbFieldName(LambdaUtils.resolveFieldName(field)) + KEY_WORD_DESC);
         return this;
     }
 
