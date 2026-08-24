@@ -35,7 +35,7 @@
 <dependency>
     <groupId>io.github.sombreknight</groupId>
     <artifactId>feather-orm-spring-boot-starter</artifactId>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
 </dependency>
 ```
 
@@ -167,8 +167,8 @@ public class MyHandler implements TypeHandler {
 
 已发布到 Maven Central（`io.github.sombreknight`），发版流程：
 
-1. 更新 pom 版本号（如 `0.5.0`）并提交
-2. 打 tag 并推送：`git tag v0.5.0 && git push origin v0.5.0`
+1. 更新 pom 版本号（如 `0.6.0`）并提交
+2. 打 tag 并推送：`git tag v0.6.0 && git push origin v0.6.0`
 3. GitHub Actions 自动构建、测试、签名并发布（需先在仓库配置 Secrets，见 [release.yml](.github/workflows/release.yml)）
 
 ## 模块结构
