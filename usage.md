@@ -22,12 +22,17 @@
 ```yaml
 feather:
   datasource:
-    primary:                    # 必填
+    primary:                    # 默认集群（必填；也可用 others.default 命名）
       url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
       username: root
       password: xxx
-    replicas:                   # 可选：不配即单节点（零路由开销）
+    replicas:                   # 可选：默认集群的从库，不配即单节点（零路由开销）
       - url: jdbc:mysql://slave1:3306/demo
+        username: root
+        password: xxx
+    others:                     # 可选：其他集群（多数据源，见第 8 章）
+      order:
+        url: jdbc:mysql://localhost:3306/order
         username: root
         password: xxx
     hikari:                     # 可选：主从共用，不配即 Hikari 默认值
@@ -376,7 +381,103 @@ List<UserEntity> list = userDAO.findList(...);   // 本次查询走主库
 
 ---
 
-## 8. 事务
+## 8. 多数据源（一个实例读写多个独立数据库）
+
+> 一个 Spring Boot 应用实例可同时读写多个**独立数据库**，引擎可不同（如 MySQL + PostgreSQL + Oracle 混用），每个库独立具备读写分离能力、独立方言与池参数。一个 Spring Boot 应用实例可同时读写多个**独立数据库**，引擎可不同（如 MySQL + PostgreSQL + Oracle 混用），每个库独立具备读写分离能力、独立方言与池参数。
+
+### 8.1 配置
+
+```yaml
+feather:
+  datasource:
+    primary:                    # 默认集群（兼容旧配置；也可用 others.default 命名）
+      url: jdbc:mysql://localhost:3306/biz
+      username: root
+      password: xxx
+      replicas:                 # 该集群的从库（可选，读写分离）
+        - url: jdbc:mysql://slave1:3306/biz
+          username: root
+          password: xxx
+    others:                     # 其他集群：每个独立数据库一个 key
+      order:
+        url: jdbc:mysql://localhost:3306/order
+        username: root
+        password: xxx
+      log:
+        url: jdbc:postgresql://localhost:5432/log
+        username: postgres
+        password: xxx
+        dialect: postgresql     # 可选：集群级方言覆盖（缺省 auto 自动探测）
+        hikari:                 # 可选：集群级池参数覆盖（缺省继承全局 hikari）
+          maximum-pool-size: 5
+    hikari:                     # 全局池参数（所有集群继承）
+      maximum-pool-size: 20
+```
+
+- **默认集群确定规则**（按序）：`others.default` → 顶层 `primary` → `others.primary`；配置了 `others` 但无默认集群时**启动失败**；全不配置时回退 Boot 默认数据源
+- **集群级可配**：`replicas`（本集群读写分离）、`dialect`（覆盖方言探测）、`hikari`（覆盖全局池参数）
+- **账号不继承、不默认**：未配置 username/password 即无账号，每集群按需显式配置
+- 集群 url 必填，driver 自动推导，方言缺省自动探测
+
+### 8.2 DAO 绑定
+
+```java
+@Repository
+@FeatherDataSource("order")        // 绑定 others.order 集群
+public class OrderDAO extends BaseDAO<OrderEntity> { }
+```
+
+- 不标注 → 默认集群（现有代码零改动）
+- `@FeatherDataSource("default")` / `("primary")` 均解析到默认集群
+- **集群不存在 → 启动期 fail-fast**（BeanCreationException 指明缺失集群与可用集群），杜绝运行时跑错库
+
+### 8.3 Bean 与注入
+
+每个集群注册一组 Bean（默认集群另有无前缀主 Bean，标记 `@Primary`，兼容旧 `@Autowired`）：
+
+| Bean 类型 | 命名集群 | 默认集群主 Bean |
+|---|---|---|
+| DataSource | `<name>DataSource` | `featherDataSource` |
+| NamedParameterJdbcTemplate | `<name>NamedParameterJdbcTemplate` | `namedParameterJdbcTemplate` |
+| JdbcDAO | `<name>JdbcDAO` | `jdbcDAO` |
+| DataSourceTransactionManager | `<name>TransactionManager` | `transactionManager` |
+| TransactionTemplate | `<name>TransactionTemplate` | `transactionTemplate` |
+
+```java
+@Autowired private JdbcDAO jdbcDAO;                            // 默认集群
+@Resource(name = "orderJdbcDAO") private JdbcDAO orderJdbcDAO;  // 指定集群
+@Autowired private Map<String, JdbcDAO> jdbcDAOMap;             // 全量（key 为 Bean 名）
+```
+
+### 8.4 事务（每集群独立）
+
+```java
+// 默认集群（与旧版一致）
+@Transactional
+public void doBiz() { ... }
+
+// 指定集群：@Transactional 指定事务管理器 Bean 名
+@Transactional(transactionManager = "orderTransactionManager")
+public void doOrder() { ... }
+
+// 编程式：注入对应集群的 TransactionTemplate
+@Resource(name = "orderTransactionTemplate") private TransactionTemplate orderTx;
+orderTx.executeWithoutResult(status -> { ... });
+```
+
+### 8.5 跨库事务（明确不支持）
+
+一个 `@Transactional` 只能管**一个集群**，另一个集群的操作不受该事务保护（独立提交）。
+需要跨库一致性的场景请使用 Seata / 本地消息表 / TCC 等方案，框架不实现。
+
+### 8.6 多引擎方言
+
+每个集群**独立探测/配置方言**（§12 方言表），同一实体类可在多个引擎中各自生成正确的 SQL（ColumnMapper 按（实体, 方言）缓存，互不污染）。
+全局 `feather.orm.dialect` 显式配置时作为所有未单独指定方言集群的默认。
+
+---
+
+## 9. 事务
 
 ```java
 // 声明式
@@ -395,7 +496,7 @@ transactionTemplate.executeWithoutResult(status -> {
 
 ---
 
-## 9. ID 生成
+## 10. ID 生成
 
 - **按主键类型自动匹配**：`Long` 主键 → `SnowflakeIdGenerator`（雪花）；`String` 主键 → `UuidIdGenerator`（UUID）；均通过 `IdGenerator.idType()` 与实体泛型参数匹配
 - **多实例部署**：建议配置 `feather.orm.worker-id` 避免雪花 id 冲突
@@ -405,7 +506,7 @@ transactionTemplate.executeWithoutResult(status -> {
 
 ---
 
-## 10. RowMapper 实现
+## 11. RowMapper 实现
 
 - 默认 **Javassist**：运行时生成字节码，零反射、零查表；已适配 JDK 8/17/21（无需 `--add-opens`）
 - 切换纯反射：`feather.orm.row-mapper: reflection`（安全策略/禁用字节码生成的环境兜底）
@@ -413,7 +514,7 @@ transactionTemplate.executeWithoutResult(status -> {
 
 ---
 
-## 11. 兼容性与限制
+## 12. 兼容性与限制
 
 - **Java 17+**（JDK 17/21 已验证），**Spring Boot 3.x**（3.0~3.5，基线 3.5.16）；Java 8 / Boot 2 用户请锁定 v0.2.0
 - **SQL 方言可配置**（`feather.orm.dialect`），默认 `auto` 从 JDBC 元数据自动探测：
@@ -445,11 +546,12 @@ feather:
 - 分页 count 自动剥离 `order by` / `for update`，避免 SQL Server 对无 TOP/LIMIT 的子查询排序报错
 - 零时间（`0000-00-00`）语义仅 MySQL 支持，非 MySQL 库请勿依赖
 - 单库单表，无分库分表、无实体缓存（v1 定位）
+- **支持多数据源**（多个独立数据库，引擎可不同），见第 8 章；跨库事务不支持
 - 一套框架一套配置：引入后持久层即 Feather，不与 MyBatis/JPA 混用
 
 ---
 
-## 12. 常见踩坑清单
+## 13. 常见踩坑清单
 
 | 场景 | 正确做法 |
 |---|---|
@@ -460,10 +562,12 @@ feather:
 | 查询列不存在 | DTO 映射自动跳过；实体映射（DO）缺列会抛异常 |
 | DAO 不生效 | 记得加 `@Repository` |
 | 查询条件拼错字段 | 抛异常（fail-fast），不会静默查错 |
+| 多库场景 DAO 跑错库 | 用 `@FeatherDataSource("集群名")` 标注；集群不存在时启动即报错 |
+| 多库事务 | 一个 `@Transactional` 只保护一个集群；跨库一致性用 Seata/本地消息表/TCC |
 
 ---
 
-## 13. 与 Agent 协作约定
+## 14. 与 Agent 协作约定
 
 1. 实体类名 `XxxEntity extends BaseEntity<Long>`（雪花）或 `BaseEntity<String>`（UUID）；DAO `XxxDAO extends BaseDAO<XxxEntity>` 并标 `@Repository`
 2. 字段映射优先**约定**（驼峰→下划线），不规则才用 `@Column`

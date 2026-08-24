@@ -78,13 +78,24 @@ public class QueryHelper<T extends BaseEntity<?>> {
     private final boolean logShowSql;
 
     public QueryHelper(Class<T> tableClass) {
-        this(tableClass, false);
+        this(tableClass, Mapper.getInstance().getDialect(), false);
     }
 
     public QueryHelper(Class<T> tableClass, boolean logShowSql) {
+        this(tableClass, Mapper.getInstance().getDialect(), logShowSql);
+    }
+
+    /**
+     * 多数据源场景：按指定方言构建（BaseDAO 使用所属 JdbcDAO 的方言，保证列引用与本库一致）
+     */
+    public QueryHelper(Class<T> tableClass, SqlDialect dialect) {
+        this(tableClass, dialect, false);
+    }
+
+    public QueryHelper(Class<T> tableClass, SqlDialect dialect, boolean logShowSql) {
         this.tableClass = tableClass;
-        this.columnMapper = Mapper.getInstance().getColumnMapper(tableClass);
-        this.dialect = Mapper.getInstance().getDialect();
+        this.columnMapper = Mapper.getInstance().getColumnMapper(tableClass, dialect);
+        this.dialect = dialect;
         this.logShowSql = logShowSql;
     }
 

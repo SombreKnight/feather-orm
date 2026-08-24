@@ -42,7 +42,7 @@ feather-orm
 │       ├── datasource    RoutingDataSource / DataSourceHolder / DataSourceKey
 │       ├── util          FeatherDate / NamingUtils / ReflectUtils / JsonUtils / RandomUtils
 │       └── exception     FeatherDaoException
-├── feather-orm-spring-boot-starter    # 自动配置：FeatherAutoConfiguration + FeatherProperties
+├── feather-orm-spring-boot-starter    # 自动配置：FeatherAutoConfiguration + FeatherProperties + FeatherDataSourceRegistrar
 │   └── META-INF/spring.factories + AutoConfiguration.imports（双注册，兼容 2.x 全版本）
 └── feather-orm-samples                # 可运行示例（H2 内存库，端口 9090，不发布）
 ```
@@ -52,11 +52,13 @@ feather-orm
 - `QueryHelper`：面向对象拼 SQL（字段名→列名自动映射，fail-fast）
 - `TypeHandlerRegistry`：类型映射单一事实源（user > 简单 > 时间 > FeatherDate > 枚举 > JSON 兜底）
 - `RoutingDataSource`：自研路由数据源（**不继承 AbstractRoutingDataSource**，见第 9 节坑 3）
+- `FeatherDataSourceRegistrar`：多数据源动态注册器（BeanDefinitionRegistry 按 `feather.datasource` 配置注册各集群 DataSource/Template/JdbcDAO/TxManager/TxTemplate，见第 4 节约定 8）
 
 ## 4. 核心设计约定（改代码必须遵守）
 
 1. **命名**：实体 `XxxEntity extends BaseEntity<Long>`（雪花主键）或 `BaseEntity<String>`（UUID 主键）；DAO `XxxDAO extends BaseDAO<XxxEntity>` 且标 `@Repository`；查询投影用 DTO。**禁止再引入 DO/domain/VO 命名**（2024 重构已统一为 Entity/DTO）
-2. **列名约定**：驼峰→下划线（`userName`→`user_name`）；不规则列名才用 `@Column`；主键列名默认 `id`，特殊用 `@Table(idColumn=...)`
+2. **多数据源**（0.6.0 起）：`feather.datasource.others.<name>` 声明独立数据库（引擎可不同），DAO 类上 `@FeatherDataSource("<name>")` 绑定，不标走默认集群（`primary` 或 `others.default`）；每个集群独立 dialect/读写分离/池参数；Bean 命名 `<name>DataSource / <name>JdbcDAO / <name>TransactionManager / <name>TransactionTemplate / <name>NamedParameterJdbcTemplate`，默认集群另有 `featherDataSource / jdbcDAO / transactionManager / transactionTemplate / namedParameterJdbcTemplate` 主 Bean（@Primary）。跨库事务不支持。
+3. **列名约定**：驼峰→下划线（`userName`→`user_name`）；不规则列名才用 `@Column`；主键列名默认 `id`，特殊用 `@Table(idColumn=...)`
 3. **类型映射**：复杂对象/集合字段**零注解自动 JSON**；枚举默认 `name()`，业务码用 `CodeEnum<T>`（`getValue()`），第三方枚举用 `@EnumValue("方法名")` 逃生舱
 4. **null 语义**：insert 跳过 null 列（DB 默认值生效）；update 只更新非 null 字段（COALESCE，null 字段不触碰）
 5. **fail-fast**：QueryHelper 未知字段、null 参数、无 where 的 findList 一律抛 `FeatherDaoException`，不静默
@@ -124,6 +126,9 @@ git tag v0.1.2 && git push origin v0.1.2
 5. **Sonatype Central 认证**：User Token 认证头是 `UserToken <base64(user:pass)>`；旧 OSSRH 已关停（2025-06-30），只走 central.sonatype.com
 6. **`versions:set` 多模块联动正常**：`mvn versions:set -DnewVersion=x.y.z -DgenerateBackupPoms=false` 会同步父/子 pom，且 starter 里 `${project.version}` 引用保持
 7. **QueryHelper 排序片段**：`KEY_WORD_ASC = " asc"`（无尾随空格），join 后才是 `age asc, id desc`——改常量注意别带回空格
+8. **动态注册 Bean 的三坑**（FeatherDataSourceRegistrar 实测）：① 同名 Bean 重复注册抛 `BeanDefinitionOverrideException`——主库与路由数据源要分开命名（`<name>MasterDataSource` vs `<name>DataSource`）；② `getBeanNamesForType` 在循环内会看到**框架自己刚注册的 Bean**（把 primaryDialect 误判为用户 SqlDialect）——用户 Bean 探测必须在注册任何框架 Bean **之前**一次性完成；③ `Binder.bind("feather")` 在无任何 `feather.*` 配置时返回 empty Optional——需 `orElseGet(FeatherProperties::new)` 否则回退场景（不配 feather 数据源走 Boot 默认）会整体不注册
+9. **`@Autowired Map<String, JdbcDAO>` 的 key 只含 Bean 名不含别名**：默认集群的 `<name>JdbcDAO` 别名进不了 Map；BaseDAO 对 `default`/`primary` 语义做「查不到则回退主 Bean `jdbcDAO`」处理，不要依赖别名注入
+10. **多数据源测试结构**：`@FeatherDataSource` 标注的测试 DAO 必须放在扫描范围外的包（`io.github.sombreknight.feather.support`），否则会污染其他测试的 context（fail-fast 启动失败）；多数据源测试类用 `@SpringBootTest(classes = {..., 该DAO.class})` 显式引入；混合引擎测试用 `@EnabledIf` + 端口探测跳过（CI 有 MySQL/PG 服务容器，本地无容器自动跳过）
 
 ## 10. Agent 协作速查
 

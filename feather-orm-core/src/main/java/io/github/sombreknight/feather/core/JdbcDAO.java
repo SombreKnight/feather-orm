@@ -111,6 +111,13 @@ public class JdbcDAO {
     // ==================== 数据源路由 ====================
 
     /**
+     * 当前实例绑定的 SQL 方言（多数据源场景下各 JdbcDAO 实例方言独立）
+     */
+    public SqlDialect getDialect() {
+        return dialect;
+    }
+
+    /**
      * 强制后续操作走主库（仅对当前线程的本次操作生效）
      */
     public JdbcDAO forceMaster() {
@@ -210,8 +217,8 @@ public class JdbcDAO {
         }
         @SuppressWarnings("unchecked")
         Class<T> clazz = (Class<T>) entity.getClass();
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
-        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
+        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz, dialect);
 
         StringBuilder sets = new StringBuilder();
         Map<String, Object> params = new HashMap<>();
@@ -266,8 +273,8 @@ public class JdbcDAO {
                 throw new FeatherDaoException("批量更新时实体 id 不能为 null");
             }
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
-        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
+        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz, dialect);
 
         StringBuilder sets = new StringBuilder();
         List<FieldHandler> settableHandlers = new ArrayList<>();
@@ -320,7 +327,7 @@ public class JdbcDAO {
         if (entity == null || entity.getId() == null) {
             throw new FeatherDaoException("JdbcDAO.deleteEntity: entity 或 id 不能为 null");
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getDeleteSql() + " where " + mapper.getQuotedIdColumn() + " = :" + PK_FIELD_NAME;
         setDataSourceKey(true);
         try {
@@ -340,7 +347,7 @@ public class JdbcDAO {
         for (T entity : entities) {
             ids.add(entity.getId());
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getDeleteSql() + " where " + mapper.getQuotedIdColumn() + " in (:" + PK_FIELD_NAME + ")";
         setDataSourceKey(true);
         try {
@@ -361,13 +368,13 @@ public class JdbcDAO {
         if (id == null) {
             return null;
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getFromSql() + " where " + mapper.getQuotedIdColumn() + " = :" + PK_FIELD_NAME;
         setDataSourceKey(true);
         try {
             return namedParameterJdbcTemplate.queryForObject(sql,
                     Collections.singletonMap(PK_FIELD_NAME, id),
-                    rowMapperSupport.getRowMapper(clazz));
+                    rowMapperSupport.getRowMapper(clazz, dialect));
         } catch (EmptyResultDataAccessException e) {
             return null;
         } catch (IncorrectResultSizeDataAccessException e) {
@@ -386,7 +393,7 @@ public class JdbcDAO {
         if (ids.size() > BATCH_SIZE) {
             log.warn("findByIds 数量超过 {}，将分批查询，size={}", BATCH_SIZE, ids.size());
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getFromSql() + " where " + mapper.getQuotedIdColumn() + " in (:" + PK_FIELD_NAME + ")";
         List<T> result = new ArrayList<>(ids.size());
         setDataSourceKey(true);
@@ -394,7 +401,7 @@ public class JdbcDAO {
             for (List<?> partition : partition(new ArrayList<>(ids), BATCH_SIZE)) {
                 result.addAll(namedParameterJdbcTemplate.query(sql,
                         Collections.singletonMap(PK_FIELD_NAME, partition),
-                        rowMapperSupport.getRowMapper(clazz)));
+                        rowMapperSupport.getRowMapper(clazz, dialect)));
             }
             return result;
         } catch (Exception e) {
@@ -408,12 +415,12 @@ public class JdbcDAO {
 
     public <T extends BaseEntity<?>> T findOne(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getFromSql() + whereSql;
         setDataSourceKey(false);
         try {
             return namedParameterJdbcTemplate.queryForObject(sql, paramToMap(param),
-                    rowMapperSupport.getRowMapper(clazz));
+                    rowMapperSupport.getRowMapper(clazz, dialect));
         } catch (EmptyResultDataAccessException e) {
             return null;
         } catch (IncorrectResultSizeDataAccessException e) {
@@ -430,12 +437,12 @@ public class JdbcDAO {
         if (whereSql == null || whereSql.trim().isEmpty()) {
             throw new FeatherDaoException("findList 需要 where 条件，请使用 QueryHelper 拼装");
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getFromSql() + whereSql;
         setDataSourceKey(false);
         try {
             return namedParameterJdbcTemplate.query(sql, paramToMap(param),
-                    rowMapperSupport.getRowMapper(clazz));
+                    rowMapperSupport.getRowMapper(clazz, dialect));
         } catch (Exception e) {
             throw new FeatherDaoException("findList[" + clazz.getName() + "]失败", e);
         } finally {
@@ -445,7 +452,7 @@ public class JdbcDAO {
 
     public <T extends BaseEntity<?>> long count(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         // 剥离 order by / for update：PostgreSQL 等对 count(*) 带 order by 直接报错
         String sql = mapper.getCountSql() + dialect.stripTailForCount(whereSql);
         setDataSourceKey(false);
@@ -473,12 +480,12 @@ public class JdbcDAO {
                 return new PagingResult<>(new PageInfo(total, page, size), Collections.emptyList());
             }
         }
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getFromSql() + whereSql + orderByForPaging(whereSql) + dialect.limitClause(skip, size);
         setDataSourceKey(false);
         try {
             List<T> list = namedParameterJdbcTemplate.query(sql, paramToMap(param),
-                    rowMapperSupport.getRowMapper(clazz));
+                    rowMapperSupport.getRowMapper(clazz, dialect));
             return new PagingResult<>(new PageInfo(total, page, size), list);
         } catch (Exception e) {
             throw new FeatherDaoException("分页查询[" + clazz.getName() + "]失败", e);
@@ -630,8 +637,8 @@ public class JdbcDAO {
     @SuppressWarnings("unchecked")
     private <T extends BaseEntity<?>> InsertStatement buildInsert(T entity) {
         Class<T> clazz = (Class<T>) entity.getClass();
-        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz);
-        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
+        ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
+        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz, dialect);
 
         StringBuilder columns = new StringBuilder();
         StringBuilder placeholders = new StringBuilder();
@@ -664,7 +671,7 @@ public class JdbcDAO {
     private <T extends BaseEntity<?>> Map<String, Object> buildParams(T entity, List<String> fieldNames) {
         @SuppressWarnings("unchecked")
         Class<T> clazz = (Class<T>) entity.getClass();
-        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
+        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz, dialect);
         Map<String, Object> params = new HashMap<>();
         for (FieldHandler handler : handlers) {
             String fieldName = handler.getMeta().getField().getName();
@@ -685,7 +692,7 @@ public class JdbcDAO {
     private <T extends BaseEntity<?>> List<String> nonNullFieldNames(T entity) {
         @SuppressWarnings("unchecked")
         Class<T> clazz = (Class<T>) entity.getClass();
-        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz);
+        FieldHandler[] handlers = rowMapperSupport.resolveHandlers(clazz, dialect);
         List<String> names = new ArrayList<>();
         for (FieldHandler handler : handlers) {
             Object value = handler.getValue(entity);
@@ -723,7 +730,7 @@ public class JdbcDAO {
     @SuppressWarnings("unchecked")
     private IdGenerator<?> idGeneratorFor(Class<?> entityClass) {
         ColumnMapper<BaseEntity<?>> mapper =
-                (ColumnMapper<BaseEntity<?>>) Mapper.getInstance().getColumnMapper((Class<BaseEntity<?>>) entityClass);
+                (ColumnMapper<BaseEntity<?>>) Mapper.getInstance().getColumnMapper((Class<BaseEntity<?>>) entityClass, dialect);
         Class<?> pkType = mapper.getPkType();
         IdGenerator<?> generator = idGeneratorByType.get(pkType);
         if (generator == null) {

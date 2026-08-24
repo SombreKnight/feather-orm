@@ -1,6 +1,10 @@
 package io.github.sombreknight.feather.core;
 
+import io.github.sombreknight.feather.annotation.FeatherDataSource;
+import org.springframework.beans.factory.BeanCreationException;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -23,13 +27,46 @@ import java.util.Map;
  * List&lt;UserEntity&gt; list = userDAO.findList(userDAO.getQueryHelper().whereEqual("userName", "张三"));
  * </pre>
  *
+ * <p>多数据源：在 DAO 类上标注 {@link FeatherDataSource @FeatherDataSource("集群名")}
+ * 绑定到指定集群（feather.datasource.others 中的 key）；不标注走默认集群。</p>
+ *
  * @param <T> 实体类型
  * @author sombreknight
  */
-public class BaseDAO<T extends BaseEntity<?>> {
+public abstract class BaseDAO<T extends BaseEntity<?>> implements InitializingBean {
 
+    /**
+     * 全部已注册的 JdbcDAO（bean 名 + 别名，如 orderJdbcDAO / defaultJdbcDAO / jdbcDAO）
+     */
     @Autowired
+    private Map<String, JdbcDAO> jdbcDAOs;
+
+    /**
+     * 本 DAO 归属集群的 JdbcDAO（由 {@link FeatherDataSource} 解析；不标注即默认集群）
+     */
     protected JdbcDAO jdbcDAO;
+
+    @Override
+    public void afterPropertiesSet() {
+        FeatherDataSource ann = AnnotatedElementUtils.findMergedAnnotation(getClass(), FeatherDataSource.class);
+        if (ann != null && ann.value() != null && !ann.value().trim().isEmpty()) {
+            String cluster = ann.value().trim();
+            jdbcDAO = jdbcDAOs.get(cluster + "JdbcDAO");
+            if (jdbcDAO == null && ("default".equals(cluster) || "primary".equals(cluster))) {
+                // default / primary 为默认集群的别名语义：未显式注册时回退默认集群主 bean
+                jdbcDAO = jdbcDAOs.get("jdbcDAO");
+            }
+            if (jdbcDAO == null) {
+                throw new BeanCreationException("数据源集群未配置: [" + cluster
+                        + "]，请检查 feather.datasource.others 配置（可用集群: " + jdbcDAOs.keySet() + "）");
+            }
+        } else {
+            jdbcDAO = jdbcDAOs.get("jdbcDAO");
+            if (jdbcDAO == null) {
+                throw new BeanCreationException("默认 JdbcDAO 未注册，请配置 feather.datasource.primary 或 others.default");
+            }
+        }
+    }
 
     // ==================== 新增 ====================
 
@@ -130,7 +167,7 @@ public class BaseDAO<T extends BaseEntity<?>> {
     // ==================== 条件查询 ====================
 
     public QueryHelper<T> getQueryHelper() {
-        return new QueryHelper<>(getEntityClass());
+        return new QueryHelper<>(getEntityClass(), jdbcDAO.getDialect());
     }
 
     public T findOne(QueryHelper<T> queryHelper) {

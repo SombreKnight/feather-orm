@@ -1,0 +1,134 @@
+{
+  "hints": [
+    {
+      "name": "feather.orm.row-mapper",
+      "values": [
+        {
+          "value": "javassist",
+          "description": "Javassist 运行时字节码生成（默认，零反射、零查表）。"
+        },
+        {
+          "value": "reflection",
+          "description": "纯反射实现（安全策略/禁用字节码生成的环境兜底）。"
+        }
+      ]
+    },
+    {
+      "name": "feather.orm.dialect",
+      "values": [
+        { "value": "auto", "description": "自动探测（默认，按各库 JDBC 元数据）。" },
+        { "value": "mysql", "description": "MySQL / MariaDB / TiDB / OceanBase（反引号引用，LIMIT OFFSET 分页）。" },
+        { "value": "postgresql", "description": "PostgreSQL / openGauss / KingbaseES（双引号引用，LIMIT OFFSET 分页）。" },
+        { "value": "sqlserver", "description": "SQL Server 2012+ / Azure SQL（方括号引用，OFFSET FETCH 分页，自动补 ORDER BY）。" },
+        { "value": "oracle", "description": "Oracle 12c+（双引号引用，OFFSET FETCH 分页，自动补 ORDER BY）。" },
+        { "value": "sqlite", "description": "SQLite（双引号引用，LIMIT OFFSET 分页）。" },
+        { "value": "h2", "description": "H2 / HSQLDB（双引号引用，LIMIT OFFSET 分页）。" },
+        { "value": "dm", "description": "达梦 DM（双引号引用，LIMIT OFFSET 分页）。" },
+        { "value": "default", "description": "未知数据库兜底（最小引用 + LIMIT OFFSET 分页）。" }
+      ]
+    },
+    {
+      "name": "feather.datasource.primary.dialect",
+      "values": [
+        { "value": "auto", "description": "自动探测（默认，按本库 JDBC 元数据）。" },
+        { "value": "mysql", "description": "MySQL / MariaDB / TiDB / OceanBase。" },
+        { "value": "postgresql", "description": "PostgreSQL / openGauss / KingbaseES。" },
+        { "value": "sqlserver", "description": "SQL Server 2012+ / Azure SQL。" },
+        { "value": "oracle", "description": "Oracle 12c+。" },
+        { "value": "sqlite", "description": "SQLite。" },
+        { "value": "h2", "description": "H2 / HSQLDB。" },
+        { "value": "dm", "description": "达梦 DM。" },
+        { "value": "default", "description": "未知数据库兜底。" }
+      ]
+    },
+    {
+      "name": "feather.datasource.others[${cluster}].dialect",
+      "values": [
+        { "value": "auto", "description": "自动探测（默认，按本库 JDBC 元数据）。" },
+        { "value": "mysql", "description": "MySQL / MariaDB / TiDB / OceanBase。" },
+        { "value": "postgresql", "description": "PostgreSQL / openGauss / KingbaseES。" },
+        { "value": "sqlserver", "description": "SQL Server 2012+ / Azure SQL。" },
+        { "value": "oracle", "description": "Oracle 12c+。" },
+        { "value": "sqlite", "description": "SQLite。" },
+        { "value": "h2", "description": "H2 / HSQLDB。" },
+        { "value": "dm", "description": "达梦 DM。" },
+        { "value": "default", "description": "未知数据库兜底。" }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "feather.datasource.others",
+      "type": "java.util.Map<java.lang.String,io.github.sombreknight.feather.autoconfigure.FeatherProperties$ConnectionInfo>",
+      "sourceType": "io.github.sombreknight.feather.autoconfigure.FeatherProperties$Datasource",
+      "description": "其他集群：每个独立数据库一个 key（如 order / log），DAO 上用 @FeatherDataSource(\"key\") 绑定；引擎可与默认集群不同。"
+    },
+    {
+      "name": "feather.datasource.others[${cluster}]",
+      "type": "io.github.sombreknight.feather.autoconfigure.FeatherProperties$ConnectionInfo",
+      "description": "集群 ${cluster} 的连接配置（必填 url，可选 username/password/driver-class-name/dialect/replicas/hikari）。"
+    },
+    {
+      "name": "feather.datasource.others[${cluster}].replicas",
+      "type": "java.util.List<io.github.sombreknight.feather.autoconfigure.FeatherProperties$ConnectionInfo>",
+      "description": "集群 ${cluster} 的从库列表（可选，读写分离）。"
+    },
+    {
+      "name": "feather.datasource.primary.replicas",
+      "type": "java.util.List<io.github.sombreknight.feather.autoconfigure.FeatherProperties$ConnectionInfo>",
+      "description": "默认集群的从库列表（可选，读写分离）。"
+    },
+    {
+      "name": "feather.datasource.primary.replicas[${index}]",
+      "type": "io.github.sombreknight.feather.autoconfigure.FeatherProperties$ConnectionInfo",
+      "description": "默认集群第 ${index} 个从库的连接配置。"
+    }
+  ],
+  "properties": [
+    {
+      "name": "feather.datasource.others[${cluster}].url",
+      "type": "java.lang.String",
+      "description": "集群 ${cluster} 的 JDBC 连接 URL（必填）。"
+    },
+    {
+      "name": "feather.datasource.others[${cluster}].username",
+      "type": "java.lang.String",
+      "description": "集群 ${cluster} 的数据库用户名（不继承、不默认）。"
+    },
+    {
+      "name": "feather.datasource.others[${cluster}].password",
+      "type": "java.lang.String",
+      "description": "集群 ${cluster} 的数据库密码（不继承、不默认）。"
+    },
+    {
+      "name": "feather.datasource.others[${cluster}].driver-class-name",
+      "type": "java.lang.String",
+      "description": "集群 ${cluster} 的 JDBC 驱动类名（可选；缺省按 URL 自动推导）。"
+    },
+    {
+      "name": "feather.datasource.others[${cluster}].dialect",
+      "type": "java.lang.String",
+      "description": "集群 ${cluster} 的 SQL 方言覆盖（可选；缺省 auto 自动探测）。"
+    },
+    {
+      "name": "feather.datasource.primary.replicas[${index}].url",
+      "type": "java.lang.String",
+      "description": "默认集群第 ${index} 个从库的 JDBC 连接 URL。"
+    },
+    {
+      "name": "feather.datasource.primary.replicas[${index}].username",
+      "type": "java.lang.String",
+      "description": "默认集群第 ${index} 个从库的数据库用户名。"
+    },
+    {
+      "name": "feather.datasource.primary.replicas[${index}].password",
+      "type": "java.lang.String",
+      "description": "默认集群第 ${index} 个从库的数据库密码。"
+    },
+    {
+      "name": "feather.datasource.primary.replicas[${index}].driver-class-name",
+      "type": "java.lang.String",
+      "description": "默认集群第 ${index} 个从库的 JDBC 驱动类名（可选；缺省按 URL 自动推导）。"
+    }
+  ]
+}

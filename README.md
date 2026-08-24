@@ -22,7 +22,8 @@
   - 复杂对象 / 泛型集合自动 JSON 序列化，**零注解**（如 `List<String>`、`Map<String,Object>`）
 - **Javassist 运行时字节码 RowMapper**：生成期预解析类型处理器，运行时零反射、零查表；可切换到纯反射实现兜底
 - **一主多从读写分离（可选）**：配置 `replicas` 即启用，写操作与按主键查询走主库，普通查询随机从库；不配即单节点零路由开销；`forceMaster()` 随时强制主库
-- **事务开箱即用**：`@Transactional` + 编程式 `TransactionTemplate` 均可用
+- **多数据源**：一个应用实例同时读写多个独立数据库，引擎可不同（MySQL/PG/Oracle 混用），每个库独立读写分离、独立方言与池参数；`@FeatherDataSource("集群名")` 标注 DAO 绑定，启动期 fail-fast 防跑错库
+- **事务开箱即用**：`@Transactional` + 编程式 `TransactionTemplate` 均可用；每数据源独立事务管理器
 - **泛型主键 + 双生成器**：`BaseEntity<Long>` 默认雪花、`BaseEntity<String>` 默认 UUID，id 为空按主键类型自动生成，也可自行指定
 - **Fail-fast 安全**：查询条件里的未知字段立即抛异常，杜绝 SQL 注入拼串
 
@@ -49,6 +50,11 @@ feather:
       password: xxx
     replicas:              # 可选，不配即单节点
       - url: jdbc:mysql://slave1:3306/demo
+        username: root
+        password: xxx
+    others:                # 可选，多数据源：每个独立数据库一个 key（详见 usage.md 第 8 章）
+      order:
+        url: jdbc:mysql://localhost:3306/order
         username: root
         password: xxx
     hikari:                # 可选，主从共用，默认即 Hikari 默认值
@@ -91,6 +97,12 @@ public enum OrderStatus implements CodeEnum<Integer> {
 ```java
 @Repository
 public class UserDAO extends BaseDAO<UserEntity> {
+}
+
+// 多数据源：绑定到 others 中的指定集群（不标注走默认集群）
+@Repository
+@FeatherDataSource("order")
+public class OrderDAO extends BaseDAO<OrderEntity> {
 }
 ```
 
