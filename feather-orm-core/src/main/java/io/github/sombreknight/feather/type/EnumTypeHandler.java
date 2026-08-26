@@ -34,7 +34,8 @@ public class EnumTypeHandler implements TypeHandler {
         if (value instanceof CodeEnum) {
             return ((CodeEnum<?>) value).getValue();
         }
-        EnumValue enumValue = meta.getEnumValueAnnotation();
+        // meta 可能为 null（防御）：跳过 @EnumValue 分支，回退 name()
+        EnumValue enumValue = meta == null ? null : meta.getEnumValueAnnotation();
         if (enumValue != null && !enumValue.value().trim().isEmpty()) {
             try {
                 Method method = value.getClass().getMethod(enumValue.value().trim());

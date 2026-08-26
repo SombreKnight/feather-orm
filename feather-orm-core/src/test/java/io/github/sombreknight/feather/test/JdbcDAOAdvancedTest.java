@@ -219,10 +219,8 @@ public class JdbcDAOAdvancedTest {
     }
 
     /**
-     * P0 缺陷复现：size&lt;=0 当前实现静默返回空结果（LIMIT 0,0 合法），而非 fail-fast。
-     * 修复（入口校验 size&gt;=1）后启用。
+     * P2 缺陷修复验证：size&lt;=0 现在入口 fail-fast（修复前 LIMIT 0,0 静默返回空）。
      */
-    @org.junit.jupiter.api.Disabled("P0 缺陷：分页 size<=0 未校验，静默返回空；见 QA issues.md")
     @Test
     public void findPageByPageNumRejectsInvalidSize() {
         jdbcDAO.save(newItem("分页3", new BigDecimal("3.00")));

@@ -474,6 +474,7 @@ public class JdbcDAO {
     public <T extends BaseEntity<?>> PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param,
                                                                 int page, int size, boolean withTotal) {
         checkParam(param);
+        validatePageParam(page, size);
         whereSql = whereSql == null ? "" : whereSql;
         int skip = (page - 1) * size;
         long total = 0;
@@ -533,6 +534,7 @@ public class JdbcDAO {
     public <T> PagingResult<T> findDtoPageByPageNum(Class<T> dtoClass, String sql, SqlParam param,
                                                    int page, int size, boolean withTotal) {
         checkParam(param);
+        validatePageParam(page, size);
         int skip = (page - 1) * size;
         long total = 0;
         if (withTotal) {
@@ -585,6 +587,7 @@ public class JdbcDAO {
     public <T> PagingResult<T> findFieldPageByPageNum(Class<T> clazz, String sql, SqlParam param,
                                                       int page, int size, boolean withTotal) {
         checkParam(param);
+        validatePageParam(page, size);
         int skip = (page - 1) * size;
         long total = 0;
         if (withTotal) {
@@ -747,6 +750,17 @@ public class JdbcDAO {
     /**
      * 校验参数：存在 null 值参数时立即失败（fail-fast）
      */
+    /**
+     * 分页参数校验（fail-fast）：page 与 size 必须 >= 1，
+     * 避免非法值拼出 LIMIT 负偏移 / 静默空结果 / 乘积溢出。
+     */
+    private static void validatePageParam(int page, int size) {
+        if (page < 1 || size < 1) {
+            throw new FeatherDaoException("分页参数非法: page=" + page + ", size=" + size
+                    + "（要求 page>=1, size>=1）");
+        }
+    }
+
     private static void checkParam(SqlParam param) {
         if (param != null && !param.getNullParamList().isEmpty()) {
             throw new FeatherDaoException("SQL 参数存在 null 值，禁止执行: " + param.getNullParamList());
