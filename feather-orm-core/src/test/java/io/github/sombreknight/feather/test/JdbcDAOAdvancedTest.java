@@ -204,6 +204,35 @@ public class JdbcDAOAdvancedTest {
         assertThrows(FeatherDaoException.class, () -> jdbcDAO.findList(ItemEntity.class, "", null));
     }
 
+    // ==================== 分页参数边界（P0） ====================
+
+    @Test
+    public void findPageByPageNumRejectsInvalidPage() {
+        jdbcDAO.save(newItem("分页1", new BigDecimal("1.00")));
+        jdbcDAO.save(newItem("分页2", new BigDecimal("2.00")));
+
+        // page <= 0 → skip 为负，当前实现拼 LIMIT 负偏移（H2 报错被包装）；修复方向：方法入口显式校验
+        assertThrows(FeatherDaoException.class,
+                () -> jdbcDAO.findPageByPageNum(ItemEntity.class, "", null, 0, 10, false));
+        assertThrows(FeatherDaoException.class,
+                () -> jdbcDAO.findPageByPageNum(ItemEntity.class, "", null, -1, 10, false));
+    }
+
+    /**
+     * P0 缺陷复现：size&lt;=0 当前实现静默返回空结果（LIMIT 0,0 合法），而非 fail-fast。
+     * 修复（入口校验 size&gt;=1）后启用。
+     */
+    @org.junit.jupiter.api.Disabled("P0 缺陷：分页 size<=0 未校验，静默返回空；见 QA issues.md")
+    @Test
+    public void findPageByPageNumRejectsInvalidSize() {
+        jdbcDAO.save(newItem("分页3", new BigDecimal("3.00")));
+
+        assertThrows(FeatherDaoException.class,
+                () -> jdbcDAO.findPageByPageNum(ItemEntity.class, "", null, 1, 0, false));
+        assertThrows(FeatherDaoException.class,
+                () -> jdbcDAO.findPageByPageNum(ItemEntity.class, "", null, 1, -5, false));
+    }
+
     // ==================== 工具 ====================
 
     private static ItemEntity newItem(String name, BigDecimal price) {
