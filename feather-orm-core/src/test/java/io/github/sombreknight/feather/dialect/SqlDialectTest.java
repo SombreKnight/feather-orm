@@ -112,6 +112,36 @@ public class SqlDialectTest {
         assertEquals(" select count(*) from (select 'order by x' as note from tb_user) feather_count ", d.wrapCount(sql));
     }
 
+    @Test
+    public void stripTailNullAndEmpty() {
+        // issue #6：whereSql 为 null 时按无条件处理，不拼出字面量 null
+        MySqlDialect d = new MySqlDialect();
+        assertEquals("", d.stripTailForCount(null));
+        assertEquals("", d.stripTailForCount(""));
+        assertEquals("select * from tb_user", d.stripTailForCount("select * from tb_user order by id"));
+    }
+
+    // ==================== LIKE 转义（issue #5） ====================
+
+    @Test
+    public void likeEscapeClauseUsesPipe() {
+        // 统一非反斜杠转义符，规避 MySQL 默认 sql_mode 下 escape '\' 语法错误
+        for (SqlDialect d : all()) {
+            assertEquals(" escape '|'", d.likeEscapeClause(), d.getName());
+        }
+    }
+
+    @Test
+    public void escapeLikeValueEscapesWildcardsAndPipe() {
+        MySqlDialect d = new MySqlDialect();
+        assertEquals(null, d.escapeLikeValue(null));
+        assertEquals("", d.escapeLikeValue(""));
+        assertEquals("张", d.escapeLikeValue("张"));
+        assertEquals("50|%|_", d.escapeLikeValue("50%_"));
+        assertEquals("a||b", d.escapeLikeValue("a|b"));       // 转义符自身
+        assertEquals("a\\b", d.escapeLikeValue("a\\b"));    // 反斜杠在 | 转义符下无特殊含义，原样保留
+    }
+
     // ==================== 锁与索引提示 ====================
 
     @Test

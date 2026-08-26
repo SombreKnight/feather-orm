@@ -69,7 +69,10 @@ public abstract class AbstractDialect implements SqlDialect {
      * <p>如 {@code select ... where ... order by a desc for update} → {@code select ... where ...}</p>
      */
     static String stripTail(String sql) {
-        if (sql == null || sql.isEmpty()) {
+        if (sql == null) {
+            return "";
+        }
+        if (sql.isEmpty()) {
             return sql;
         }
         int depth = 0;

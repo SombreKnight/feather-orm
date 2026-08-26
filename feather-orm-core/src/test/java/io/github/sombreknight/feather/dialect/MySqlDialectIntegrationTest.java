@@ -157,6 +157,32 @@ public class MySqlDialectIntegrationTest {
     }
 
     @Test
+    public void likeMethodsOnMySql() {
+        // issue #5：MySQL 默认 sql_mode 下 escape '\' 语法错误；统一转义符 | 后必须正常执行且通配符按字面量匹配
+        userDAO.saveEntity(newUser("张三", 30));
+        userDAO.saveEntity(newUser("张%三", 31));   // 含 % 字面量
+        userDAO.saveEntity(newUser("张_三", 32));   // 含 _ 字面量
+        userDAO.saveEntity(newUser("李四", 33));
+
+        // 前缀模糊：正常执行
+        List<UserEntity> starts = userDAO.findList(userDAO.getQueryHelper()
+                .whereStartsWith(UserEntity::getUserName, "张"));
+        assertEquals(3, starts.size());
+
+        // 包含模糊：用户输入 % 按字面量匹配（转义生效，不再被当作通配符）
+        List<UserEntity> contains = userDAO.findList(userDAO.getQueryHelper()
+                .whereContains(UserEntity::getUserName, "张%三"));
+        assertEquals(1, contains.size());
+        assertEquals("张%三", contains.get(0).getUserName());
+
+        // 后缀模糊：正常执行
+        List<UserEntity> ends = userDAO.findList(userDAO.getQueryHelper()
+                .whereEndsWith(UserEntity::getUserName, "四"));
+        assertEquals(1, ends.size());
+        assertEquals("李四", ends.get(0).getUserName());
+    }
+
+    @Test
     public void pagingCountStripsOrderByOnMySql() {
         for (int i = 1; i <= 3; i++) {
             userDAO.saveEntity(newUser("u" + i, i));

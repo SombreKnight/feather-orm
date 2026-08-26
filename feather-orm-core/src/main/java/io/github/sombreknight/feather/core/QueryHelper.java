@@ -215,10 +215,10 @@ public class QueryHelper<T extends BaseEntity<?>> {
 
     /**
      * 包含模糊：{@code whereContains(UserEntity::getUserName, "张")} → {@code LIKE '%张%'}。
-     * 自动转义通配符（{@code % _ \}），可直接传用户输入，安全。
+     * 自动转义通配符（{@code % _ |}），可直接传用户输入，安全。
      */
     public QueryHelper<T> whereContains(FieldFunction<T, ?> field, String keyword) {
-        return likeWithEscape(field, keyword == null ? null : "%" + escapeLike(keyword) + "%");
+        return likeWithEscape(field, keyword == null ? null : "%" + dialect.escapeLikeValue(keyword) + "%");
     }
 
     /**
@@ -226,7 +226,7 @@ public class QueryHelper<T extends BaseEntity<?>> {
      * 自动转义通配符，可直接传用户输入，安全。
      */
     public QueryHelper<T> whereStartsWith(FieldFunction<T, ?> field, String prefix) {
-        return likeWithEscape(field, prefix == null ? null : escapeLike(prefix) + "%");
+        return likeWithEscape(field, prefix == null ? null : dialect.escapeLikeValue(prefix) + "%");
     }
 
     /**
@@ -234,7 +234,7 @@ public class QueryHelper<T extends BaseEntity<?>> {
      * 自动转义通配符，可直接传用户输入，安全。
      */
     public QueryHelper<T> whereEndsWith(FieldFunction<T, ?> field, String suffix) {
-        return likeWithEscape(field, suffix == null ? null : "%" + escapeLike(suffix));
+        return likeWithEscape(field, suffix == null ? null : "%" + dialect.escapeLikeValue(suffix));
     }
 
     private QueryHelper<T> range(FieldFunction<T, ?> field, Object value, String operator) {
@@ -245,6 +245,9 @@ public class QueryHelper<T extends BaseEntity<?>> {
         return this;
     }
 
+    /**
+     * 转义 LIKE 通配符（% _ |），配合 ESCAPE '|' 子句使用（见 {@link SqlDialect#escapeLikeValue}）；null 原样返回
+     */
     private QueryHelper<T> likeWithEscape(FieldFunction<T, ?> field, String pattern) {
         String column = getDbFieldName(LambdaUtils.resolveFieldName(field));
         String key = newPlaceKey(column);
@@ -252,18 +255,6 @@ public class QueryHelper<T extends BaseEntity<?>> {
                 .append(SEPARATOR_COLON).append(key).append(dialect.likeEscapeClause());
         sqlParam.add(key, pattern);
         return this;
-    }
-
-    /**
-     * 转义 LIKE 通配符（% _ \），配合 ESCAPE '\' 子句使用；null 原样返回
-     */
-    private static String escapeLike(String input) {
-        if (input == null) {
-            return null;
-        }
-        return input.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
     }
 
     // ==================== 分组 / 排序 / 分页 ====================

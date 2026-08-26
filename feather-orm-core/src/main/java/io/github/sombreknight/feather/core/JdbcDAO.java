@@ -415,6 +415,7 @@ public class JdbcDAO {
 
     public <T extends BaseEntity<?>> T findOne(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
+        whereSql = whereSql == null ? "" : whereSql;
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         String sql = mapper.getFromSql() + whereSql;
         setDataSourceKey(false);
@@ -452,6 +453,7 @@ public class JdbcDAO {
 
     public <T extends BaseEntity<?>> long count(Class<T> clazz, String whereSql, SqlParam param) {
         checkParam(param);
+        whereSql = whereSql == null ? "" : whereSql;
         ColumnMapper<T> mapper = Mapper.getInstance().getColumnMapper(clazz, dialect);
         // 剥离 order by / for update：PostgreSQL 等对 count(*) 带 order by 直接报错
         String sql = mapper.getCountSql() + dialect.stripTailForCount(whereSql);
@@ -472,6 +474,7 @@ public class JdbcDAO {
     public <T extends BaseEntity<?>> PagingResult<T> findPageByPageNum(Class<T> clazz, String whereSql, SqlParam param,
                                                                 int page, int size, boolean withTotal) {
         checkParam(param);
+        whereSql = whereSql == null ? "" : whereSql;
         int skip = (page - 1) * size;
         long total = 0;
         if (withTotal) {

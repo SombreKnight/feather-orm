@@ -35,7 +35,7 @@
 <dependency>
     <groupId>io.github.sombreknight</groupId>
     <artifactId>feather-orm-spring-boot-starter</artifactId>
-    <version>0.6.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -43,25 +43,24 @@
 
 ```yaml
 feather:
-  datasource:
-    primary:
-      url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
-      username: root
-      password: xxx
-    replicas:              # 可选，不配即单节点
-      - url: jdbc:mysql://slave1:3306/demo
-        username: root
-        password: xxx
-    others:                # 可选，多数据源：每个独立数据库一个 key（详见 usage.md 第 8 章）
-      order:
-        url: jdbc:mysql://localhost:3306/order
-        username: root
-        password: xxx
-    hikari:                # 可选，主从共用，默认即 Hikari 默认值
-      maximum-pool-size: 20
-      minimum-idle: 5
   orm:
-    row-mapper: javassist  # javassist（默认）| reflection
+    datasource:
+      primary:
+        url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
+        username: root
+        password: xxx
+      replicas:            # 可选，不配即单节点
+        - url: jdbc:mysql://slave1:3306/demo
+          username: root
+          password: xxx
+      others:              # 可选，多数据源：每个独立数据库一个 key（详见 usage.md 第 8 章）
+        order:
+          url: jdbc:mysql://localhost:3306/order
+          username: root
+          password: xxx
+      hikari:              # 可选，主从共用，默认即 Hikari 默认值
+        maximum-pool-size: 20
+        minimum-idle: 5
     worker-id: 1           # 可选，雪花 workerId，多实例部署建议显式配置
 ```
 
@@ -167,8 +166,8 @@ public class MyHandler implements TypeHandler {
 
 已发布到 Maven Central（`io.github.sombreknight`），发版流程：
 
-1. 更新 pom 版本号（如 `0.6.0`）并提交
-2. 打 tag 并推送：`git tag v0.6.0 && git push origin v0.6.0`
+1. 更新 pom 版本号（如 `1.0.0`）并提交
+2. 打 tag 并推送：`git tag v1.0.0 && git push origin v1.0.0`
 3. GitHub Actions 自动构建、测试、签名并发布（需先在仓库配置 Secrets，见 [release.yml](.github/workflows/release.yml)）
 
 ## 模块结构

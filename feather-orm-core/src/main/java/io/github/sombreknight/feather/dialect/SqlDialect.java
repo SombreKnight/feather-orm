@@ -43,11 +43,26 @@ public interface SqlDialect {
 
     /**
      * LIKE 转义子句：配合便捷模糊方法（whereContains / whereStartsWith / whereEndsWith）的
-     * 通配符自动转义。默认 {@code escape '\'}（标准 SQL，MySQL / PostgreSQL / SQL Server /
-     * Oracle / H2 / SQLite 等主流数据库均支持）。
+     * 通配符自动转义。统一使用非反斜杠转义符 {@code |}：
+     *
+     * <ul>
+     *   <li>规避 MySQL 默认 sql_mode 下 {@code escape '\'} 的字符串转义问题（issue #5）</li>
+     *   <li>与 {@code NO_BACKSLASH_ESCAPES} 等 sql_mode 无关，跨数据库行为一致</li>
+     * </ul>
      */
     default String likeEscapeClause() {
-        return " escape '\\'";
+        return " escape '|'";
+    }
+
+    /**
+     * 转义 LIKE 通配符（{@code % _}）与转义符自身（{@code |}），与 {@link #likeEscapeClause()} 配套；
+     * null 原样返回。
+     */
+    default String escapeLikeValue(String input) {
+        if (input == null) {
+            return null;
+        }
+        return input.replace("|", "||").replace("%", "|%").replace("_", "|_");
     }
 
     /**

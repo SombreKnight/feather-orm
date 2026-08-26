@@ -34,13 +34,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @EnabledIf(value = "io.github.sombreknight.feather.test.FeatherMixedEngineTest#databasesAvailable",
         disabledReason = "需要 MySQL(3306) 与 PostgreSQL(5432) 服务容器（CI 服务容器 / 本地 colima）")
 @SpringBootTest(classes = {StarterTestApplication.class, LogAccountDAO.class}, properties = {
-        "feather.datasource.primary.url=${MYSQL_TEST_URL:jdbc:mysql://localhost:3306/feather_test?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true}",
-        "feather.datasource.primary.username=${MYSQL_TEST_USERNAME:feather}",
-        "feather.datasource.primary.password=${MYSQL_TEST_PASSWORD:feather}",
-        "feather.datasource.others.log.url=${PG_TEST_URL:jdbc:postgresql://localhost:5432/feather_test}",
-        "feather.datasource.others.log.username=${PG_TEST_USERNAME:feather}",
-        "feather.datasource.others.log.password=${PG_TEST_PASSWORD:feather}",
-        "feather.orm.row-mapper=javassist"
+        "feather.orm.datasource.primary.url=${MYSQL_TEST_URL:jdbc:mysql://localhost:3306/feather_test?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true}",
+        "feather.orm.datasource.primary.username=${MYSQL_TEST_USERNAME:feather}",
+        "feather.orm.datasource.primary.password=${MYSQL_TEST_PASSWORD:feather}",
+        "feather.orm.datasource.others.log.url=${PG_TEST_URL:jdbc:postgresql://localhost:5432/feather_test}",
+        "feather.orm.datasource.others.log.username=${PG_TEST_USERNAME:feather}",
+        "feather.orm.datasource.others.log.password=${PG_TEST_PASSWORD:feather}"
+
 })
 public class FeatherMixedEngineTest {
 

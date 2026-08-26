@@ -28,7 +28,7 @@ import java.util.Map;
  * </pre>
  *
  * <p>多数据源：在 DAO 类上标注 {@link FeatherDataSource @FeatherDataSource("集群名")}
- * 绑定到指定集群（feather.datasource.others 中的 key）；不标注走默认集群。</p>
+ * 绑定到指定集群（feather.orm.datasource.others 中的 key）；不标注走默认集群。</p>
  *
  * @param <T> 实体类型
  * @author sombreknight
@@ -58,12 +58,12 @@ public abstract class BaseDAO<T extends BaseEntity<?>> implements InitializingBe
             }
             if (jdbcDAO == null) {
                 throw new BeanCreationException("数据源集群未配置: [" + cluster
-                        + "]，请检查 feather.datasource.others 配置（可用集群: " + jdbcDAOs.keySet() + "）");
+                        + "]，请检查 feather.orm.datasource.others 配置（可用集群: " + jdbcDAOs.keySet() + "）");
             }
         } else {
             jdbcDAO = jdbcDAOs.get("jdbcDAO");
             if (jdbcDAO == null) {
-                throw new BeanCreationException("默认 JdbcDAO 未注册，请配置 feather.datasource.primary 或 others.default");
+                throw new BeanCreationException("默认 JdbcDAO 未注册，请配置 feather.orm.datasource.primary 或 others.default");
             }
         }
     }

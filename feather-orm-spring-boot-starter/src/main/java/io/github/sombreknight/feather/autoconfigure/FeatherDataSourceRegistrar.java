@@ -32,7 +32,7 @@ import java.util.Map;
 /**
  * 多数据源 Bean 注册器
  *
- * <p>按 {@code feather.datasource} 配置为每个集群注册一组 Bean：</p>
+ * <p>按 {@code feather.orm.datasource} 配置为每个集群注册一组 Bean：</p>
  * <ul>
  *   <li>DataSource（有从库则为 RoutingDataSource）— {@code <name>DataSource}</li>
  *   <li>NamedParameterJdbcTemplate — {@code <name>NamedParameterJdbcTemplate}</li>
@@ -46,7 +46,7 @@ import java.util.Map;
  * 保证旧代码 {@code @Autowired} 行为不变；同时注册 {@code <name>} 别名，使 {@code Map&lt;String, JdbcDAO&gt;}
  * 可按集群名取用。</p>
  *
- * <p>未配置任何 {@code feather.datasource} 连接时（primary 为空且 others 为空）不注册任何 Bean，
+ * <p>未配置任何 {@code feather.orm.datasource} 连接时（primary 为空且 others 为空）不注册任何 Bean，
  * 优雅回退 Spring Boot 默认数据源。</p>
  *
  * @author sombreknight
@@ -65,7 +65,7 @@ public class FeatherDataSourceRegistrar implements ImportBeanDefinitionRegistrar
                                         org.springframework.beans.factory.support.BeanNameGenerator importBeanNameGenerator) {
         FeatherProperties props = Binder.get(environment).bind("feather", FeatherProperties.class)
                 .orElseGet(FeatherProperties::new);
-        FeatherProperties.Datasource dsCfg = props.getDatasource();
+        FeatherProperties.Datasource dsCfg = props.getOrm().getDatasource();
 
         // 用户自定义 SqlDialect Bean（等价旧版 @ConditionalOnMissingBean 语义），需在注册任何方言 Bean 之前探测
         String userDialectBean = findUserDialectBean(registry);
@@ -78,7 +78,7 @@ public class FeatherDataSourceRegistrar implements ImportBeanDefinitionRegistrar
 
         List<Cluster> clusters = resolveClusters(dsCfg);
         if (clusters.isEmpty()) {
-            // 未配置 feather 数据源：回退 Spring Boot 默认数据源，但仍注册默认 JdbcDAO / TransactionTemplate（兼容旧版）
+            // 未配置 feather.orm.datasource：回退 Spring Boot 默认数据源，但仍注册默认 JdbcDAO / TransactionTemplate（兼容旧版）
             registerFallbackJdbcDAO(registry, props, userDialectBean, null);
             return;
         }
@@ -171,8 +171,8 @@ public class FeatherDataSourceRegistrar implements ImportBeanDefinitionRegistrar
         if (defaultCluster != null) {
             clusters.add(defaultCluster);
         } else if (!others.isEmpty()) {
-            throw new IllegalStateException("feather.datasource 配置了 others 但未指定默认集群，"
-                    + "请配置 feather.datasource.primary 或在 others 中配置 default/primary 集群");
+            throw new IllegalStateException("feather.orm.datasource 配置了 others 但未指定默认集群，"
+                    + "请配置 feather.orm.datasource.primary 或在 others 中配置 default/primary 集群");
         }
 
         for (Map.Entry<String, FeatherProperties.ConnectionInfo> entry : others.entrySet()) {
@@ -233,7 +233,7 @@ public class FeatherDataSourceRegistrar implements ImportBeanDefinitionRegistrar
 
     private void registerDataSource(BeanDefinitionRegistry registry, Cluster cluster,
                                     FeatherProperties props, String dsName) {
-        FeatherProperties.Hikari globalHikari = props.getDatasource().getHikari();
+        FeatherProperties.Hikari globalHikari = props.getOrm().getDatasource().getHikari();
         List<FeatherProperties.ConnectionInfo> replicas = cluster.replicas;
 
         if (replicas.isEmpty()) {
@@ -269,7 +269,7 @@ public class FeatherDataSourceRegistrar implements ImportBeanDefinitionRegistrar
                                                FeatherProperties.Hikari globalHikari,
                                                String poolName) {
         if (!hasUrl(info)) {
-            throw new IllegalStateException("feather.datasource 集群缺少 url 配置: " + info);
+            throw new IllegalStateException("feather.orm.datasource 集群缺少 url 配置: " + info);
         }
         RootBeanDefinition bd = new RootBeanDefinition(HikariDataSource.class);
         bd.setPropertyValues(buildHikariProperties(info, globalHikari, poolName));

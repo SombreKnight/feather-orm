@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 回退场景测试：未配置 feather.datasource 时，框架回退 Spring Boot 默认数据源，
+ * 回退场景测试：未配置 feather.orm.datasource 时，框架回退 Spring Boot 默认数据源，
  * 默认 JdbcDAO / TransactionTemplate / DAO 仍正常工作（旧版行为兼容）
  *
  * @author sombreknight

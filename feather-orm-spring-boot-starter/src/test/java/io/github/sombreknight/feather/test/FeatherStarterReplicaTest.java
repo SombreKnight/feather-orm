@@ -27,12 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @author sombreknight
  */
 @SpringBootTest(classes = StarterTestApplication.class, properties = {
-        "feather.datasource.primary.url=jdbc:h2:mem:feather-starter-master;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "feather.datasource.primary.username=sa",
-        "feather.datasource.primary.password=",
-        "feather.datasource.replicas[0].url=jdbc:h2:mem:feather-starter-slave;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "feather.datasource.replicas[0].username=sa",
-        "feather.datasource.replicas[0].password="
+        "feather.orm.datasource.primary.url=jdbc:h2:mem:feather-starter-master;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "feather.orm.datasource.primary.username=sa",
+        "feather.orm.datasource.primary.password=",
+        "feather.orm.datasource.replicas[0].url=jdbc:h2:mem:feather-starter-slave;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "feather.orm.datasource.replicas[0].username=sa",
+        "feather.orm.datasource.replicas[0].password="
 })
 public class FeatherStarterReplicaTest {
 

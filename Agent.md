@@ -13,7 +13,7 @@
 | 仓库 | https://github.com/SombreKnight/feather-orm（默认分支 `main`） |
 | 包名 | `io.github.sombreknight.feather` |
 | 坐标 | `io.github.sombreknight:feather-orm-spring-boot-starter`（已发布 Maven Central） |
-| 当前版本 | 0.6.0（发版流程见第 6/7 节） |
+| 当前版本 | 1.0.0（发版流程见第 6/7 节） |
 | License | Apache 2.0 |
 | 技术栈 | Java 17 字节码（JDK 17/21 兼容）、Spring Boot 3.5.x BOM、Javassist 3.29.2、Jackson、HikariCP |
 
@@ -52,12 +52,12 @@ feather-orm
 - `QueryHelper`：面向对象拼 SQL（字段名→列名自动映射，fail-fast）
 - `TypeHandlerRegistry`：类型映射单一事实源（user > 简单 > 时间 > FeatherDate > 枚举 > JSON 兜底）
 - `RoutingDataSource`：自研路由数据源（**不继承 AbstractRoutingDataSource**，见第 9 节坑 3）
-- `FeatherDataSourceRegistrar`：多数据源动态注册器（BeanDefinitionRegistry 按 `feather.datasource` 配置注册各集群 DataSource/Template/JdbcDAO/TxManager/TxTemplate，见第 4 节约定 8）
+- `FeatherDataSourceRegistrar`：多数据源动态注册器（BeanDefinitionRegistry 按 `feather.orm.datasource` 配置注册各集群 DataSource/Template/JdbcDAO/TxManager/TxTemplate，见第 4 节约定 8）
 
 ## 4. 核心设计约定（改代码必须遵守）
 
 1. **命名**：实体 `XxxEntity extends BaseEntity<Long>`（雪花主键）或 `BaseEntity<String>`（UUID 主键）；DAO `XxxDAO extends BaseDAO<XxxEntity>` 且标 `@Repository`；查询投影用 DTO。**禁止再引入 DO/domain/VO 命名**（2024 重构已统一为 Entity/DTO）
-2. **多数据源**（0.6.0 起）：`feather.datasource.others.<name>` 声明独立数据库（引擎可不同），DAO 类上 `@FeatherDataSource("<name>")` 绑定，不标走默认集群（`primary` 或 `others.default`）；每个集群独立 dialect/读写分离/池参数；Bean 命名 `<name>DataSource / <name>JdbcDAO / <name>TransactionManager / <name>TransactionTemplate / <name>NamedParameterJdbcTemplate`，默认集群另有 `featherDataSource / jdbcDAO / transactionManager / transactionTemplate / namedParameterJdbcTemplate` 主 Bean（@Primary）。跨库事务不支持。
+2. **多数据源**（0.6.0 起，1.0.0 配置前缀归一化为 `feather.orm.datasource`）：`feather.orm.datasource.others.<name>` 声明独立数据库（引擎可不同），DAO 类上 `@FeatherDataSource("<name>")` 绑定，不标走默认集群（`primary` 或 `others.default`）；每个集群独立 dialect/读写分离/池参数；Bean 命名 `<name>DataSource / <name>JdbcDAO / <name>TransactionManager / <name>TransactionTemplate / <name>NamedParameterJdbcTemplate`，默认集群另有 `featherDataSource / jdbcDAO / transactionManager / transactionTemplate / namedParameterJdbcTemplate` 主 Bean（@Primary）。跨库事务不支持。
 3. **列名约定**：驼峰→下划线（`userName`→`user_name`）；不规则列名才用 `@Column`；主键列名默认 `id`，特殊用 `@Table(idColumn=...)`
 3. **类型映射**：复杂对象/集合字段**零注解自动 JSON**；枚举默认 `name()`，业务码用 `CodeEnum<T>`（`getValue()`），第三方枚举用 `@EnumValue("方法名")` 逃生舱
 4. **null 语义**：insert 跳过 null 列（DB 默认值生效）；update 只更新非 null 字段（COALESCE，null 字段不触碰）

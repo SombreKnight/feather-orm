@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * @author sombreknight
  */
 @SpringBootTest(classes = StarterTestApplication.class, properties = {
-        "feather.datasource.primary.url=jdbc:h2:mem:feather-starter;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "feather.datasource.primary.username=sa",
-        "feather.datasource.primary.password=",
-        "feather.orm.row-mapper=javassist"
+        "feather.orm.datasource.primary.url=jdbc:h2:mem:feather-starter;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
+        "feather.orm.datasource.primary.username=sa",
+        "feather.orm.datasource.primary.password="
+
 })
 public class FeatherStarterTest {
 

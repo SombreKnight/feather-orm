@@ -2,25 +2,25 @@ server:
   port: 9090
 
 feather:
-  datasource:
-    primary:
-      url: jdbc:h2:mem:feather-sample;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
-      username: sa
-      password:
   orm:
-    row-mapper: javassist
+    datasource:
+      primary:
+        url: jdbc:h2:mem:feather-sample;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+        username: sa
+        password:
 
 # 示例用 H2；生产环境换成 MySQL：
 # feather:
-#   datasource:
-#     primary:
-#       url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
-#       username: root
-#       password: xxx
-#     replicas:
-#       - url: jdbc:mysql://slave1:3306/demo
+#   orm:
+#     datasource:
+#       primary:
+#         url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
 #         username: root
 #         password: xxx
+#       replicas:
+#         - url: jdbc:mysql://slave1:3306/demo
+#           username: root
+#           password: xxx
 
 spring:
   sql:

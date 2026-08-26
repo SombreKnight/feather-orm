@@ -89,16 +89,26 @@ public class QueryHelperTest {
     @Test
     public void likeConvenienceMethodsEscapeWildcards() {
         QueryHelper<UserEntity> qh = new QueryHelper<>(UserEntity.class);
-        // 含通配符的用户输入自动转义，并拼 ESCAPE 子句
+        // 含通配符的用户输入自动转义，并拼 ESCAPE 子句（统一使用非反斜杠转义符 |，issue #5）
         String sql = qh.whereContains(UserEntity::getUserName, "50%_")
                 .whereStartsWith(UserEntity::getUserName, "张")
                 .whereEndsWith(UserEntity::getUserName, "三")
                 .getWhereSql();
-        assertTrue(sql.contains("user_name like :user_name_1 escape '\\'"), sql);
-        assertTrue(sql.contains("user_name like :user_name_2 escape '\\'"), sql);
-        assertTrue(sql.contains("user_name like :user_name_3 escape '\\'"), sql);
+        assertTrue(sql.contains("user_name like :user_name_1 escape '|'"), sql);
+        assertTrue(sql.contains("user_name like :user_name_2 escape '|'"), sql);
+        assertTrue(sql.contains("user_name like :user_name_3 escape '|'"), sql);
         Object first = qh.getSqlParam().toMap().values().iterator().next();
-        assertTrue("%50\\%\\_%".equals(first), "通配符应被转义: " + first);
+        assertTrue("%50|%|_%".equals(first), "通配符应被转义: " + first);
+    }
+
+    @Test
+    public void likeEscapePipeChar() {
+        // 转义符自身 | 需转义为 ||，避免误吞后续通配符
+        QueryHelper<UserEntity> qh = new QueryHelper<>(UserEntity.class);
+        String sql = qh.whereContains(UserEntity::getUserName, "a|b%c").getWhereSql();
+        Object param = qh.getSqlParam().toMap().values().iterator().next();
+        assertTrue("%a||b|%c%".equals(param), "| 与 % 应同时转义: " + param);
+        assertTrue(sql.contains("escape '|'"));
     }
 
     @Test

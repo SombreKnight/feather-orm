@@ -13,7 +13,7 @@
 <dependency>
     <groupId>io.github.sombreknight</groupId>
     <artifactId>feather-orm-spring-boot-starter</artifactId>
-    <version>0.6.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -21,29 +21,28 @@
 
 ```yaml
 feather:
-  datasource:
-    primary:                    # 默认集群（必填；也可用 others.default 命名）
-      url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
-      username: root
-      password: xxx
-    replicas:                   # 可选：默认集群的从库，不配即单节点（零路由开销）
-      - url: jdbc:mysql://slave1:3306/demo
-        username: root
-        password: xxx
-    others:                     # 可选：其他集群（多数据源，见第 8 章）
-      order:
-        url: jdbc:mysql://localhost:3306/order
-        username: root
-        password: xxx
-    hikari:                     # 可选：主从共用，不配即 Hikari 默认值
-      maximum-pool-size: 20
-      minimum-idle: 5
   orm:
-    row-mapper: javassist       # javassist（默认，字节码生成）| reflection（纯反射兜底）
+    datasource:
+      primary:                # 默认集群（必填；也可用 others.default 命名）
+        url: jdbc:mysql://localhost:3306/demo?useUnicode=true&characterEncoding=utf-8
+        username: root
+        password: xxx
+      replicas:               # 可选：默认集群的从库，不配即单节点（零路由开销）
+        - url: jdbc:mysql://slave1:3306/demo
+          username: root
+          password: xxx
+      others:                 # 可选：其他集群（多数据源，见第 8 章）
+        order:
+          url: jdbc:mysql://localhost:3306/order
+          username: root
+          password: xxx
+      hikari:                 # 可选：主从共用，不配即 Hikari 默认值
+        maximum-pool-size: 20
+        minimum-idle: 5
     worker-id: 1                # 可选：雪花算法 workerId，多实例部署建议显式配置
 ```
 
-**接管行为**：配置了 `feather.datasource.primary.url` 后，框架在 Spring Boot 默认数据源自动配置**之前**创建 `DataSource` / `NamedParameterJdbcTemplate` / 事务管理器，Boot 默认自动配置自动失效。未配置时优雅回退到 Boot 默认数据源。
+**接管行为**：配置了 `feather.orm.datasource.primary.url` 后，框架在 Spring Boot 默认数据源自动配置**之前**创建 `DataSource` / `NamedParameterJdbcTemplate` / 事务管理器，Boot 默认自动配置自动失效。未配置时优雅回退到 Boot 默认数据源。
 
 ### 1.3 定义实体 + DAO + 使用
 
@@ -509,7 +508,8 @@ transactionTemplate.executeWithoutResult(status -> {
 ## 11. RowMapper 实现
 
 - 默认 **Javassist**：运行时生成字节码，零反射、零查表；已适配 JDK 8/17/21（无需 `--add-opens`）
-- 切换纯反射：`feather.orm.row-mapper: reflection`（安全策略/禁用字节码生成的环境兜底）
+- **自动探测（默认）**：启动时探测环境是否支持字节码生成，不允许（安全策略 / GraalVM 等）自动降级纯反射，无需任何配置
+- 强制指定（仅特殊环境）：`-Dfeather.orm.row-mapper=reflection` 或 `-Dfeather.orm.row-mapper=javassist`（显式指定时不做降级）
 - 生成的类按实体静态缓存，多个 JdbcDAO 实例共享，不会重复定义
 
 ---

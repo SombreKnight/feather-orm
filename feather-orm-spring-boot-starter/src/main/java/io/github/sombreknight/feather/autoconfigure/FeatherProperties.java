@@ -12,27 +12,26 @@ import java.util.Map;
  *
  * <pre>
  * feather:
- *   datasource:
- *     primary:             # 默认集群（兼容旧写法；也可用 others.default 命名默认集群）
- *       url: jdbc:mysql://localhost:3306/demo
- *       username: root
- *       password: xxx
- *       replicas:          # 该集群的从库（可选，读写分离）
- *         - url: jdbc:mysql://slave1:3306/demo
- *           username: root
- *           password: xxx
- *     others:              # 其他集群：每个独立数据库一个 key（可选）
- *       order:
- *         url: jdbc:mysql://localhost:3306/order
+ *   orm:
+ *     datasource:
+ *       primary:             # 默认集群（也可用 others.default 命名默认集群）
+ *         url: jdbc:mysql://localhost:3306/demo
  *         username: root
  *         password: xxx
- *         dialect: mysql   # 可选，集群级方言覆盖（缺省 auto 探测）
- *         hikari:          # 可选，集群级池参数覆盖（缺省继承全局 hikari）
- *           maximum-pool-size: 5
- *     hikari:              # 全局池参数（所有集群继承，集群级可覆盖）
- *       maximum-pool-size: 20
- *   orm:
- *     row-mapper: javassist   # javassist | reflection
+ *         replicas:          # 该集群的从库（可选，读写分离）
+ *           - url: jdbc:mysql://slave1:3306/demo
+ *             username: root
+ *             password: xxx
+ *       others:              # 其他集群：每个独立数据库一个 key（可选）
+ *         order:
+ *           url: jdbc:mysql://localhost:3306/order
+ *           username: root
+ *           password: xxx
+ *           dialect: mysql   # 可选，集群级方言覆盖（缺省 auto 探测）
+ *           hikari:          # 可选，集群级池参数覆盖（缺省继承全局 hikari）
+ *             maximum-pool-size: 5
+ *       hikari:              # 全局池参数（所有集群继承，集群级可覆盖）
+ *         maximum-pool-size: 20
  *     dialect: auto           # auto(默认，自动探测) | mysql | postgresql | sqlserver | oracle | sqlite | h2 | dm | default
  *     worker-id: 1            # 可选，雪花算法 workerId
  * </pre>
@@ -45,16 +44,7 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "feather")
 public class FeatherProperties {
 
-    private Datasource datasource = new Datasource();
     private Orm orm = new Orm();
-
-    public Datasource getDatasource() {
-        return datasource;
-    }
-
-    public void setDatasource(Datasource datasource) {
-        this.datasource = datasource;
-    }
 
     public Orm getOrm() {
         return orm;
@@ -326,14 +316,12 @@ public class FeatherProperties {
         }
     }
 
-    // ==================== ORM 行为 ====================
-
     public static class Orm {
 
         /**
-         * RowMapper 实现：javassist（默认，字节码生成）| reflection（纯反射兜底）
+         * 数据源配置（默认集群 + 其他集群 + 全局池参数），ORM 的连接管理设施
          */
-        private String rowMapper = "javassist";
+        private Datasource datasource = new Datasource();
 
         /**
          * 雪花算法 workerId（可选；多实例部署时建议显式配置避免重复）
@@ -346,12 +334,12 @@ public class FeatherProperties {
          */
         private String dialect = "auto";
 
-        public String getRowMapper() {
-            return rowMapper;
+        public Datasource getDatasource() {
+            return datasource;
         }
 
-        public void setRowMapper(String rowMapper) {
-            this.rowMapper = rowMapper;
+        public void setDatasource(Datasource datasource) {
+            this.datasource = datasource;
         }
 
         public Long getWorkerId() {

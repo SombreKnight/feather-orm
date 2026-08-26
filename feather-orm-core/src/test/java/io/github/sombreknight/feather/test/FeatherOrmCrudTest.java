@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.github.sombreknight.feather.core.IdGenerator;
 import io.github.sombreknight.feather.core.JdbcDAO;
 import io.github.sombreknight.feather.core.PagingResult;
+import io.github.sombreknight.feather.core.SqlParam;
 import io.github.sombreknight.feather.mapping.JavassistRowMapperFactory;
 import io.github.sombreknight.feather.mapping.RowMapperSupport;
 import io.github.sombreknight.feather.type.TypeHandlerRegistry;
@@ -175,6 +176,24 @@ public class FeatherOrmCrudTest {
         assertEquals(5, result.getPageInfo().getTotal());
         assertEquals(2, result.getData().size());
         assertEquals(3, result.getPageInfo().getTotalPage());
+    }
+
+    @Test
+    public void t04b_whereSqlNullAsNoCondition() {
+        // issue #6：whereSql 传 null 按无条件处理（与空串一致），不再拼出字面量 null
+        // findOne(null)：单条数据时正常返回（多条时“多于一条”是既有业务语义）
+        userDAO.saveEntity(newUser("null测试", 20, OrderStatus.CREATED, TypeEnum.TEST1));
+        assertNotNull(jdbcDAO.findOne(UserEntity.class, null, SqlParam.create()));
+        // 多条数据：count(null) == 全量、分页正常
+        userDAO.saveEntity(newUser("null测试2", 21, OrderStatus.CREATED, TypeEnum.TEST1));
+        userDAO.saveEntity(newUser("null测试3", 22, OrderStatus.CREATED, TypeEnum.TEST1));
+        assertEquals(3, jdbcDAO.count(UserEntity.class, null, SqlParam.create()));
+        PagingResult<UserEntity> result = jdbcDAO.findPageByPageNum(
+                UserEntity.class, null, SqlParam.create(), 1, 2, true);
+        assertEquals(3, result.getPageInfo().getTotal());
+        assertEquals(2, result.getData().size());
+        // 与空串行为完全一致
+        assertEquals(3, jdbcDAO.count(UserEntity.class, "", SqlParam.create()));
     }
 
     @Test

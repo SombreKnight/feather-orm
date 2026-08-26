@@ -1,6 +1,6 @@
 # Feather ORM 多数据源支持 — 方案 Spec（v1.0 评审通过）
 
-> 状态：**评审通过（2026-08-23）**，已按本文档实施完成（M1 方言去全局化 / M2 多集群装配 / M3 DAO 绑定 / M4 事务与文档），待发版 0.6.0。
+> 状态：**评审通过（2026-08-23）**，已按本文档实施完成（M1 方言去全局化 / M2 多集群装配 / M3 DAO 绑定 / M4 事务与文档），随 0.6.0 发布。1.0.0 起配置前缀归一化为 `feather.orm.datasource.*`（原 `feather.datasource.*`）。
 >
 > 评审决议：① 多集群配置 key 用 `others`；② 默认集群别名 `default`/`primary` 同时支持；
 > ③ 注解名 `@FeatherDataSource`；④ **不做账号继承**——未配置 username/password 即无账号；
@@ -15,7 +15,7 @@
 当前架构是一条"全局单链"，一个应用实例只能接一个数据库集群：
 
 ```
-feather.datasource.primary(+replicas)
+feather.orm.datasource.primary(+replicas)
   → 单个 DataSource / RoutingDataSource（一主多从）
     → 单个 NamedParameterJdbcTemplate
       → 单个 JdbcDAO 单例（持有 dialect / slaveCount）
@@ -68,7 +68,7 @@ feather.datasource.primary(+replicas)
 
 - `driverClassName` → 缺省自动推导（维持现状，按 JDBC URL 自动识别）
 - `dialect` → 缺省 `auto`（启动时按各库元数据独立探测）
-- `hikari` 池参数 → 缺省继承全局 `feather.datasource.hikari`，集群级可覆盖单项
+- `hikari` 池参数 → 缺省继承全局 `feather.orm.datasource.hikari`，集群级可覆盖单项
 - `username / password` → **不继承、不默认**：未配置即无账号（按评审决议④）
 
 ### 3.2 配置示例
@@ -113,8 +113,8 @@ feather:
 
 ### 3.3 默认集群确定规则（互斥，按序匹配）
 
-1. 配置了 `feather.datasource.default` → 默认集群 = `default`
-2. 否则配置了 `feather.datasource.primary` → 默认集群 = `primary`（**兼容现状，零迁移**）
+1. 配置了 `feather.orm.datasource.default` → 默认集群 = `default`
+2. 否则配置了 `feather.orm.datasource.primary` → 默认集群 = `primary`（**兼容现状，零迁移**）
 3. 否则 `others` 中存在名为 `default` 或 `primary` 的项 → 取其为首
 4. 都不满足 → 未进入多数据源模式：有 `primary.url` 走现有单集群逻辑；都没有则回退 Spring Boot 默认数据源（维持现状）
 
@@ -146,7 +146,7 @@ feather:
 - 每个集群独立构建：`HikariDataSource`（池名 `feather-<name>`，保持现状风格）→ 有 replicas 则包 `RoutingDataSource` → `NamedParameterJdbcTemplate` → `JdbcDAO(name, dialect, slaveCount)` → `DataSourceTransactionManager` → `TransactionTemplate`
 - 各集群的 `SqlDialect` 独立探测/指定，互不影响
 - `Hikari` 池参数解析：集群级覆盖项优先，其余取全局
-- 激活条件变更：现 `@ConditionalOnProperty("feather.datasource.primary.url")` 改为 **default 集群有 url 或 `sources` 非空** 时接管持久层
+- 激活条件变更：现 `@ConditionalOnProperty("feather.orm.datasource.primary.url")` 改为 **default 集群有 url 或 `sources` 非空** 时接管持久层
 - 自定义扩展点：用户可自行注册任意 `<name>JdbcDAO` bean 覆盖（配合 `@ConditionalOnMissingBean` 逻辑，参照现状 JdbcDAO 的处理方式）
 
 ---
@@ -229,7 +229,7 @@ public abstract class BaseDAO<T extends BaseEntity<?>> {
 
 | 场景 | 行为 |
 |---|---|
-| `@FeatherDataSource("order")` 但配置里无 `order` | 启动失败，异常信息含"未配置的数据源：order，请检查 feather.datasource.others" |
+| `@FeatherDataSource("order")` 但配置里无 `order` | 启动失败，异常信息含"未配置的数据源：order，请检查 feather.orm.datasource.others" |
 | 配了 `others` 但无默认集群（无 default/primary） | 启动失败，明确提示 |
 | 集群 url 缺失 | 维持现状（`IllegalStateException`） |
 | 不标注解 | 走默认集群，与现有行为完全一致 |

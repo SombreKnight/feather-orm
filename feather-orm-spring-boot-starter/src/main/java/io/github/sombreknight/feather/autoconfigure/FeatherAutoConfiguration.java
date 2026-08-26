@@ -28,8 +28,8 @@ import java.util.List;
  * Feather ORM 自动配置
  *
  * <p>数据源 / NamedParameterJdbcTemplate / JdbcDAO / 事务管理器由
- * {@link FeatherDataSourceRegistrar} 按 {@code feather.datasource} 配置动态注册：
- * 单集群（兼容旧配置 {@code primary} + {@code replicas}）或多集群（新增 {@code others}）统一处理；
+ * {@link FeatherDataSourceRegistrar} 按 {@code feather.orm.datasource} 配置动态注册：
+ * 单集群（{@code primary} + {@code replicas}）或多集群（{@code others}）统一处理；
  * 未配置任何连接时优雅回退到 Spring Boot 默认数据源行为。</p>
  *
  * @author sombreknight
@@ -59,14 +59,46 @@ public class FeatherAutoConfiguration {
 
     // ==================== RowMapper ====================
 
+    /**
+     * RowMapper 支持：默认 Javassist 字节码生成，环境不允许时自动降级纯反射（issue #7）。
+     *
+     * <p>强制指定（仅高级文档提及）：{@code -Dfeather.orm.row-mapper=reflection} 或
+     * {@code -Dfeather.orm.row-mapper=javassist}（显式指定时不降级）。</p>
+     */
     @Bean
     @ConditionalOnMissingBean(RowMapperSupport.class)
-    public RowMapperSupport rowMapperSupport(TypeHandlerRegistry typeHandlerRegistry,
-                                             FeatherProperties properties) {
-        RowMapperFactory factory = "reflection".equalsIgnoreCase(properties.getOrm().getRowMapper())
-                ? new ReflectionRowMapperFactory()
-                : new JavassistRowMapperFactory();
-        return new RowMapperSupport(typeHandlerRegistry, factory);
+    public RowMapperSupport rowMapperSupport(TypeHandlerRegistry typeHandlerRegistry) {
+        String forced = System.getProperty("feather.orm.row-mapper");
+        if ("reflection".equalsIgnoreCase(forced)) {
+            return new RowMapperSupport(typeHandlerRegistry, new ReflectionRowMapperFactory());
+        }
+        if ("javassist".equalsIgnoreCase(forced)) {
+            return new RowMapperSupport(typeHandlerRegistry, new JavassistRowMapperFactory());
+        }
+        if (javassistAvailable()) {
+            // 自动模式：Javassist 优先，运行期字节码生成失败时实例级降级为反射
+            return new RowMapperSupport(typeHandlerRegistry,
+                    new JavassistRowMapperFactory(), new ReflectionRowMapperFactory());
+        }
+        return new RowMapperSupport(typeHandlerRegistry, new ReflectionRowMapperFactory());
+    }
+
+    /**
+     * 探测当前环境是否支持 Javassist 字节码生成（安全策略 / GraalVM 等禁用时失败）
+     */
+    private static boolean javassistAvailable() {
+        try {
+            javassist.ClassPool pool = new javassist.ClassPool();
+            pool.appendSystemPath();
+            javassist.CtClass probe = pool.makeClass(
+                    "io.github.sombreknight.feather.autoconfigure.FeatherRowMapperProbe");
+            probe.setModifiers(java.lang.reflect.Modifier.PUBLIC);
+            probe.getClassFile2().setMajorVersion(52);
+            probe.toClass(FeatherAutoConfiguration.class);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     // ==================== ID 生成器 ====================
