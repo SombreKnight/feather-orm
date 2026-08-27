@@ -39,6 +39,17 @@
 </dependency>
 ```
 
+### 1.5 启用开关（可选）
+
+```yaml
+feather:
+  orm:
+    enabled: true    # 默认 true；置 false 时整个 ORM 不装配（不建数据源/DAO/方言，也不因缺数据源报错）
+```
+
+> 脚手架按需集成：不需要 ORM 时 `feather.orm.enabled=false` 即可彻底关闭，
+> 与 `feather.rmq.enabled` / `feather.cache.enabled` 开关语义一致。
+
 ### 2. 配置数据源（一套配置接管，无需再配 `spring.datasource.*`）
 
 ```yaml

@@ -67,6 +67,12 @@ public class FeatherDataSourceRegistrar implements ImportBeanDefinitionRegistrar
                 .orElseGet(FeatherProperties::new);
         FeatherProperties.Datasource dsCfg = props.getOrm().getDatasource();
 
+        // 开关关闭（feather.orm.enabled=false）：彻底退出装配，不注册任何 bean
+        // （AutoConfiguration 条件已拦截主路径；此处双保险覆盖直接 @Import Registrar 的场景）
+        if (!props.getOrm().isEnabled()) {
+            return;
+        }
+
         // 用户自定义 SqlDialect Bean（等价旧版 @ConditionalOnMissingBean 语义），需在注册任何方言 Bean 之前探测
         String userDialectBean = findUserDialectBean(registry);
         // 用户已自行配置 DataSource（此时自动配置尚未处理，探测到的均为用户 Bean）：不接管数据源

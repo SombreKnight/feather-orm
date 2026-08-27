@@ -319,6 +319,12 @@ public class FeatherProperties {
     public static class Orm {
 
         /**
+         * 是否启用 feather-orm，默认启用。置 false 时整个 ORM 不装配
+         * （不建数据源 / JdbcDAO / 方言，也不因缺数据源而报错），用于脚手架按需开关。
+         */
+        private boolean enabled = true;
+
+        /**
          * 数据源配置（默认集群 + 其他集群 + 全局池参数），ORM 的连接管理设施
          */
         private Datasource datasource = new Datasource();
@@ -333,6 +339,14 @@ public class FeatherProperties {
          * 显式配置时作为所有未单独指定方言的集群的方言
          */
         private String dialect = "auto";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
 
         public Datasource getDatasource() {
             return datasource;
