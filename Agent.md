@@ -61,7 +61,7 @@ feather-orm
 3. **列名约定**：驼峰→下划线（`userName`→`user_name`）；不规则列名才用 `@Column`；主键列名默认 `id`，特殊用 `@Table(idColumn=...)`
 3. **类型映射**：复杂对象/集合字段**零注解自动 JSON**；枚举默认 `name()`，业务码用 `CodeEnum<T>`（`getValue()`），第三方枚举用 `@EnumValue("方法名")` 逃生舱
 4. **null 语义**：insert 跳过 null 列（DB 默认值生效）；update 只更新非 null 字段（COALESCE，null 字段不触碰）
-5. **fail-fast**：QueryHelper 未知字段、null 参数、无 where 的 findList 一律抛 `FeatherDaoException`，不静默
+5. **fail-fast**：QueryHelper 未知字段、null 参数一律抛 `FeatherDaoException`，不静默（注意：无 where 的 findList **不**抛异常，返回全表，内部以 `where 1=1` 兜底）
 6. **主从路由**：写 + `findById(s)` 走主库；普通查询走从库；事务内复用主库连接（读己之写）；`forceMaster()` 临时切主；不配 replicas 即单节点零路由
 7. **RowMapper**：默认 Javassist 字节码生成；`feather.orm.row-mapper=reflection` 可切纯反射兜底
 

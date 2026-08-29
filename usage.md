@@ -306,7 +306,8 @@ qh.forUpdate()                                     // 悲观锁（SQLite 忽略�
 
 - **未知字段名立即抛异常**（不会拼进 SQL，杜绝注入）
 - 传 null 参数 → 执行前抛 `FeatherDaoException`
-- `findList` 不带 where 条件 → 抛异常
+
+> **注意**：`findList` 不带 where 条件时**不会**抛异常，而是返回全表——QueryHelper 内部以 `where 1=1` 兜底（仅用于避免拼装空 SQL）。使用方应保证条件完整，避免大表全量扫描；有意的全表查询请显式使用 `whereGte(id, 0)` 或类似条件。
 
 ---
 
